@@ -51,7 +51,8 @@ public final class NodeProcessRegistry implements Disposable {
      */
     private static final String[] OWNED_PROCESS_HINTS = {
             "daemon.js",
-            "channel-manager.js"
+            "channel-manager.js",
+            "responses-proxy.mjs"
     };
 
     /**
@@ -412,6 +413,9 @@ public final class NodeProcessRegistry implements Disposable {
         String lower = cmd.toLowerCase();
         if (lower.contains("daemon.js")) {
             return "claude";
+        }
+        if (lower.contains("responses-proxy")) {
+            return "codex";
         }
         if (lower.contains("codex")) {
             return "codex";

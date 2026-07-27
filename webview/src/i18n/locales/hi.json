@@ -318,8 +318,8 @@
     "dependenciesDesc": "AI SDK निर्भरताओं की इंस्टॉलेशन और अपडेट प्रबंधित करें",
     "dependency": {
       "title": "SDK निर्भरता प्रबंधन",
-      "description": "AI SDK निर्भरताओं की स्थापना स्थिति देखें। निर्भरताएं प्लगइन द्वारा स्वचालित रूप से स्थापित और अपडेट की जाती हैं।",
-      "installPolicyTip": "SDK निर्भरताएं प्लगइन द्वारा स्वचालित रूप से स्थापित/अपडेट की जाती हैं; विफलता पर स्वचालित पुनः प्रयास होता है। विवरण के लिए IDE लॉग देखें।",
+      "description": "AI SDK निर्भरताओं की स्थापना स्थिति देखें। निर्भरताएं प्लगइन द्वारा स्वचालित रूप से स्थापित की जाती हैं और अपडेट उपलब्ध होने पर सूचना दी जाती है।",
+      "installPolicyTip": "SDK निर्भरताएं प्लगइन द्वारा स्वचालित रूप से स्थापित की जाती हैं और अपडेट की जांच रोज़ होती है। अपडेट उपलब्ध होने पर सूचना के बटन से मैन्युअल रूप से अपडेट किया जा सकता है। विवरण के लिए IDE लॉग देखें।",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI सुविधाओं के लिए आवश्यक। Claude Code SDK और संबंधित निर्भरताएं शामिल हैं।",
       "codexSdkName": "Codex SDK",
@@ -1398,6 +1398,17 @@
     "hiddenModelCount": "+ {{count}} और मॉडल. खोजने के लिए टाइप करें.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "SDK अपडेट जांचें",
+      "checkHint": "SDK का नया संस्करण उपलब्ध है या नहीं जांचें",
+      "checking": "SDK अपडेट जांचे जा रहे हैं…",
+      "upToDate": "SDK नवीनतम संस्करण पर है",
+      "action": "{{name}} अपडेट करें: {{current}} → {{latest}}",
+      "updating": "{{name}} अपडेट हो रहा है…",
+      "done": "{{name}} {{version}} पर अपडेट हो गया (अगले संदेश से लागू)",
+      "checkFailed": "अपडेट जांच विफल (पुनः प्रयास के लिए क्लिक करें)",
+      "updateFailed": "{{name}} अपडेट विफल (पुनः प्रयास के लिए क्लिक करें)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

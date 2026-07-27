@@ -371,8 +371,8 @@
     "dependenciesDesc": "Manage AI SDK dependency installations and updates",
     "dependency": {
       "title": "SDK Dependency Management",
-      "description": "View the installation status of AI SDK dependencies. Dependencies are installed and updated automatically by the plugin.",
-      "installPolicyTip": "SDK dependencies are installed and updated automatically; failures are retried automatically. See the IDE logs for details.",
+      "description": "View the installation status of AI SDK dependencies. Dependencies are installed automatically, and you are notified when updates are available.",
+      "installPolicyTip": "SDK dependencies are installed automatically and checked for updates daily. When an update is available, click the notification action to apply it manually. See the IDE logs for details.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Required for Claude AI features. Includes Claude Code SDK and related dependencies.",
       "codexSdkName": "Codex SDK",
@@ -1627,6 +1627,17 @@
     "hiddenModelCount": "+ {{count}} more models. Type to search.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "Check SDK updates",
+      "checkHint": "Check whether a newer SDK version is available",
+      "checking": "Checking SDK updates…",
+      "upToDate": "SDKs are up to date",
+      "action": "Update {{name}}: {{current}} → {{latest}}",
+      "updating": "Updating {{name}}…",
+      "done": "{{name}} updated to {{version}} (applies to the next message)",
+      "checkFailed": "Update check failed (click to retry)",
+      "updateFailed": "{{name}} update failed (click to retry)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

@@ -318,8 +318,8 @@
     "dependenciesDesc": "管理 AI SDK 依賴套件的安裝和更新",
     "dependency": {
       "title": "SDK 依賴管理",
-      "description": "檢視 AI SDK 相依性的安裝狀態。相依性由外掛自動安裝與更新，無需手動操作。",
-      "installPolicyTip": "SDK 相依性由外掛自動安裝與更新；失敗會自動重試，詳情可查看 IDE 日誌。",
+      "description": "檢視 AI SDK 相依性的安裝狀態。相依性由外掛自動安裝，發現可用更新時會通知提醒。",
+      "installPolicyTip": "SDK 相依性由外掛自動安裝，並每天自動檢查更新；有可用更新時會彈出通知，點擊通知中的按鈕即可手動更新，詳情可查看 IDE 日誌。",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相關依賴。",
       "codexSdkName": "Codex SDK",
@@ -1404,6 +1404,17 @@
     "hiddenModelCount": "+ 還有 {{count}} 個模型。輸入以搜尋。",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "檢查 SDK 更新",
+      "checkHint": "檢查 SDK 相依性是否有新版本",
+      "checking": "正在檢查 SDK 更新…",
+      "upToDate": "SDK 已是最新版本",
+      "action": "更新 {{name}}：{{current}} → {{latest}}",
+      "updating": "正在更新 {{name}}…",
+      "done": "{{name}} 已更新至 {{version}}，下次傳送訊息時生效",
+      "checkFailed": "檢查更新失敗（點擊重試）",
+      "updateFailed": "{{name}} 更新失敗（點擊重試）"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

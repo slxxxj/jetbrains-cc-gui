@@ -1,6 +1,8 @@
 package com.codeaide.settings;
 
 import com.codeaide.bridge.NodeDetector;
+import com.codeaide.provider.codex.CodexConfigTomlRewriter;
+import com.codeaide.provider.codex.ResponsesProxyService;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -318,6 +320,7 @@ public class CodexSettingsManager {
         // Check if provider has configToml (raw string format)
         if (provider.has("configToml") && provider.get("configToml").isJsonPrimitive()) {
             String configTomlContent = provider.get("configToml").getAsString();
+            configTomlContent = routeChatWireApiThroughResponsesProxy(configTomlContent);
             writeConfigTomlRaw(configTomlContent);
         }
 
@@ -336,6 +339,41 @@ public class CodexSettingsManager {
 
         String providerId = provider.has("id") ? provider.get("id").getAsString() : "unknown";
         LOG.info("[CodexSettingsManager] Applied provider to " + resolveEffectiveCodexDir() + ": " + providerId);
+    }
+
+    /**
+     * Routes providers whose upstream only speaks Chat Completions
+     * ({@code wire_api = "chat"}) through the built-in local Responses API proxy.
+     * New Codex versions removed the chat wire API, so the effective config.toml
+     * must use {@code wire_api = "responses"} pointing at the localhost proxy;
+     * the proxy converts protocols against the real upstream. On any failure the
+     * original content is returned unchanged (the user can still run an external
+     * router such as cc-switch).
+     */
+    private String routeChatWireApiThroughResponsesProxy(String configTomlContent) {
+        try {
+            if (!CodexConfigTomlRewriter.needsConversion(configTomlContent)) {
+                return configTomlContent;
+            }
+            String upstream = CodexConfigTomlRewriter.extractBaseUrl(configTomlContent);
+            if (upstream == null || upstream.isEmpty()) {
+                LOG.warn("[CodexSettingsManager] wire_api=chat but no base_url found; writing config as-is");
+                return configTomlContent;
+            }
+            String proxyBaseUrl = ResponsesProxyService.getInstance().ensureRunningAndConfigure(upstream);
+            if (proxyBaseUrl == null) {
+                LOG.warn("[CodexSettingsManager] Responses proxy unavailable; writing wire_api=chat "
+                        + "config as-is (new Codex versions may reject it)");
+                return configTomlContent;
+            }
+            LOG.info("[CodexSettingsManager] Routing chat-completions upstream " + upstream
+                    + " through local responses proxy at " + proxyBaseUrl);
+            return CodexConfigTomlRewriter.rewriteForProxy(configTomlContent, proxyBaseUrl);
+        } catch (Exception e) {
+            LOG.warn("[CodexSettingsManager] Failed to route config through responses proxy: "
+                    + e.getMessage());
+            return configTomlContent;
+        }
     }
 
     /**

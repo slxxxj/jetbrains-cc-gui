@@ -89,4 +89,40 @@ public class SdkAutoInstallServiceTest {
     public void shouldNotApplyUpdateForNullInfo() {
         assertFalse(SdkAutoInstallService.shouldApplyUpdate(null));
     }
+
+    // ==================== buildUpdateSummary ====================
+
+    @Test
+    public void shouldBuildSummaryForSingleUpdate() {
+        java.util.List<UpdateInfo> updates = java.util.Collections.singletonList(
+                UpdateInfo.updateAvailable(
+                        SdkDefinition.CLAUDE_SDK.getId(),
+                        SdkDefinition.CLAUDE_SDK.getDisplayName(),
+                        "0.2.58",
+                        "0.2.88"));
+        assertEquals("Claude Code SDK 0.2.58 → 0.2.88",
+                SdkAutoInstallService.buildUpdateSummary(updates));
+    }
+
+    @Test
+    public void shouldJoinMultipleUpdatesWithSeparator() {
+        java.util.List<UpdateInfo> updates = java.util.Arrays.asList(
+                UpdateInfo.updateAvailable(
+                        SdkDefinition.CLAUDE_SDK.getId(),
+                        SdkDefinition.CLAUDE_SDK.getDisplayName(),
+                        "0.2.58",
+                        "0.2.88"),
+                UpdateInfo.updateAvailable(
+                        SdkDefinition.CODEX_SDK.getId(),
+                        SdkDefinition.CODEX_SDK.getDisplayName(),
+                        "0.117.0",
+                        "0.118.0"));
+        assertEquals("Claude Code SDK 0.2.58 → 0.2.88、Codex SDK 0.117.0 → 0.118.0",
+                SdkAutoInstallService.buildUpdateSummary(updates));
+    }
+
+    @Test
+    public void shouldBuildEmptySummaryForNoUpdates() {
+        assertEquals("", SdkAutoInstallService.buildUpdateSummary(java.util.Collections.emptyList()));
+    }
 }

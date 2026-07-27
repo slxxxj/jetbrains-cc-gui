@@ -340,8 +340,8 @@
     "dependenciesDesc": "AI SDK 의존성 설치 및 업데이트 관리",
     "dependency": {
       "title": "SDK 의존성 관리",
-      "description": "AI SDK 종속성의 설치 상태를 확인합니다. 종속성은 플러그인이 자동으로 설치하고 업데이트합니다.",
-      "installPolicyTip": "SDK 종속성은 플러그인이 자동으로 설치/업데이트하며 실패 시 자동으로 재시도합니다. 자세한 내용은 IDE 로그를 확인하세요.",
+      "description": "AI SDK 종속성의 설치 상태를 확인합니다. 종속성은 플러그인이 자동으로 설치하며, 업데이트가 있으면 알림을 볼 수 있습니다.",
+      "installPolicyTip": "SDK 종속성은 플러그인이 자동으로 설치하고 매일 업데이트를 확인합니다. 업데이트가 있으면 알림이 표시되며, 알림의 버튼을 눌러 수동으로 업데이트할 수 있습니다. 자세한 내용은 IDE 로그를 확인하세요.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 기능에 필요합니다. Claude Code SDK 및 관련 의존성을 포함합니다.",
       "codexSdkName": "Codex SDK",
@@ -1516,6 +1516,17 @@
     "hiddenModelCount": "+ {{count}}개 모델 더 있음. 입력하여 검색하세요.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "SDK 업데이트 확인",
+      "checkHint": "SDK 의 새 버전이 있는지 확인합니다",
+      "checking": "SDK 업데이트 확인 중…",
+      "upToDate": "SDK가 최신 버전입니다",
+      "action": "{{name}} 업데이트: {{current}} → {{latest}}",
+      "updating": "{{name}} 업데이트 중…",
+      "done": "{{name}}이(가) {{version}}(으)로 업데이트되었습니다(다음 메시지부터 적용)",
+      "checkFailed": "업데이트 확인 실패(클릭하여 재시도)",
+      "updateFailed": "{{name}} 업데이트 실패(클릭하여 재시도)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

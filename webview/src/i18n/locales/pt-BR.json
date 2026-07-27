@@ -367,8 +367,8 @@
     "dependenciesDesc": "Gerenciar instalações e atualizações de dependências de SDK de IA",
     "dependency": {
       "title": "Gerenciamento de Dependências do SDK",
-      "description": "Veja o status de instalação das dependências do SDK de IA. O plugin as instala e atualiza automaticamente.",
-      "installPolicyTip": "As dependências do SDK são instaladas e atualizadas automaticamente; falhas são repetidas automaticamente. Veja os logs da IDE para detalhes.",
+      "description": "Veja o status de instalação das dependências do SDK de IA. O plugin as instala automaticamente e avisa quando há atualizações disponíveis.",
+      "installPolicyTip": "As dependências do SDK são instaladas automaticamente e verificadas diariamente. Quando há uma atualização, clique no botão da notificação para aplicá-la manualmente. Veja os logs da IDE para detalhes.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Necessário para os recursos de IA do Claude. Inclui o Claude Code SDK e dependências relacionadas.",
       "codexSdkName": "Codex SDK",
@@ -1561,6 +1561,17 @@
     "hiddenModelCount": "+ {{count}} modelos adicionais. Digite para pesquisar.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "Verificar atualizações do SDK",
+      "checkHint": "Verificar se há uma nova versão do SDK",
+      "checking": "Verificando atualizações do SDK…",
+      "upToDate": "Os SDKs estão atualizados",
+      "action": "Atualizar {{name}}: {{current}} → {{latest}}",
+      "updating": "Atualizando {{name}}…",
+      "done": "{{name}} atualizado para {{version}} (válido a partir da próxima mensagem)",
+      "checkFailed": "Falha ao verificar atualizações (clique para tentar novamente)",
+      "updateFailed": "Falha ao atualizar {{name}} (clique para tentar novamente)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

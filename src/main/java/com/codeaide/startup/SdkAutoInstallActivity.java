@@ -11,8 +11,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Triggers fully automatic SDK dependency management on project open:
- * silent first-run install of missing SDKs and a throttled (24h) silent
- * background update check. The heavy lifting lives in
+ * silent first-run install of missing SDKs and a throttled (24h) background
+ * update check that notifies the user when updates are available (the update
+ * itself is applied only after the user clicks the notification action). The
+ * heavy lifting lives in
  * {@link SdkAutoInstallService}, an application-level singleton that coalesces
  * triggers from multiple project windows.
  */

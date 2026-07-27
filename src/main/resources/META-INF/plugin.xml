@@ -78,7 +78,7 @@
         <!-- Cleanup old ai-bridge cache when plugin version changes -->
         <postStartupActivity implementation="com.codeaide.startup.PluginUpdateListener"/>
 
-        <!-- Silent auto-install/update of AI SDK dependencies on project open -->
+        <!-- Auto-install of AI SDK dependencies and throttled update check (manual update via notification) on project open -->
         <postStartupActivity implementation="com.codeaide.startup.SdkAutoInstallActivity"/>
 
         <!-- Monitor Run/Debug Service Output -->

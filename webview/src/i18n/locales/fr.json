@@ -318,8 +318,8 @@
     "dependenciesDesc": "Gérer les installations et mises à jour des dépendances AI SDK",
     "dependency": {
       "title": "Gestion des dépendances SDK",
-      "description": "Consultez l'état d'installation des dépendances SDK IA. Elles sont installées et mises à jour automatiquement par le plugin.",
-      "installPolicyTip": "Les dépendances SDK sont installées et mises à jour automatiquement ; les échecs font l'objet de nouvelles tentatives automatiques. Consultez les logs de l'IDE pour plus de détails.",
+      "description": "Consultez l'état d'installation des dépendances SDK IA. Elles sont installées automatiquement par le plugin et une notification signale les mises à jour disponibles.",
+      "installPolicyTip": "Les dépendances SDK sont installées automatiquement et vérifiées chaque jour. Quand une mise à jour est disponible, cliquez sur le bouton de la notification pour l'appliquer manuellement. Consultez les logs de l'IDE pour plus de détails.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Requis pour les fonctionnalités Claude AI. Inclut Claude Code SDK et les dépendances associées.",
       "codexSdkName": "Codex SDK",
@@ -1399,6 +1399,17 @@
     "hiddenModelCount": "+ {{count}} modèles supplémentaires. Tapez pour rechercher.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "Vérifier les mises à jour du SDK",
+      "checkHint": "Vérifier si une nouvelle version du SDK est disponible",
+      "checking": "Vérification des mises à jour du SDK…",
+      "upToDate": "Les SDK sont à jour",
+      "action": "Mettre à jour {{name}} : {{current}} → {{latest}}",
+      "updating": "Mise à jour de {{name}}…",
+      "done": "{{name}} mis à jour vers {{version}} (actif dès le prochain message)",
+      "checkFailed": "Échec de la vérification (cliquez pour réessayer)",
+      "updateFailed": "Échec de la mise à jour de {{name}} (cliquez pour réessayer)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

@@ -6,6 +6,7 @@ import { readClaudeModelMapping } from '../../../utils/claudeModelMapping';
 import { getProviderCapabilities } from '../../../utils/providerCapabilities';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { SdkUpdateOptions } from './SdkUpdateOptions';
 import Switch from 'antd/es/switch';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -386,6 +387,8 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
               </div>
             </>
           )}
+          {/* Manual SDK update check/update (cc-switch style), results stay visible while the dropdown is open */}
+          <SdkUpdateOptions />
         </div>
       )}
     </div>

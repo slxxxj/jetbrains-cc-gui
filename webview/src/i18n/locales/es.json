@@ -318,8 +318,8 @@
     "dependenciesDesc": "Gestionar instalaciones y actualizaciones de dependencias AI SDK",
     "dependency": {
       "title": "Gestión de dependencias SDK",
-      "description": "Consulta el estado de instalación de las dependencias del SDK de IA. El plugin las instala y actualiza automáticamente.",
-      "installPolicyTip": "Las dependencias del SDK se instalan y actualizan automáticamente; los fallos se reintentan automáticamente. Consulta los registros del IDE para más detalles.",
+      "description": "Consulta el estado de instalación de las dependencias del SDK de IA. El plugin las instala automáticamente y notifica cuando hay actualizaciones disponibles.",
+      "installPolicyTip": "Las dependencias del SDK se instalan automáticamente y se buscan actualizaciones a diario. Cuando hay una actualización, haz clic en el botón de la notificación para aplicarla manualmente. Consulta los registros del IDE para más detalles.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Requerido para funciones de Claude AI. Incluye Claude Code SDK y dependencias relacionadas.",
       "codexSdkName": "Codex SDK",
@@ -1399,6 +1399,17 @@
     "hiddenModelCount": "+ {{count}} modelos más. Escribe para buscar.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "Buscar actualizaciones del SDK",
+      "checkHint": "Comprobar si hay una nueva versión del SDK",
+      "checking": "Buscando actualizaciones del SDK…",
+      "upToDate": "Los SDK están actualizados",
+      "action": "Actualizar {{name}}: {{current}} → {{latest}}",
+      "updating": "Actualizando {{name}}…",
+      "done": "{{name}} actualizado a {{version}} (se aplicará en el próximo mensaje)",
+      "checkFailed": "Error al buscar actualizaciones (clic para reintentar)",
+      "updateFailed": "Error al actualizar {{name}} (clic para reintentar)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

@@ -865,10 +865,19 @@ interface Window {
   // ============================================================================
 
   /**
-   * Update dependency status callback (read-only SDK status display;
-   * install/update is fully automatic on the backend)
+   * Update dependency status callback (read-only SDK status display)
    */
   updateDependencyStatus?: (json: string) => void;
+
+  /**
+   * Manual "check for SDK updates" result callback (DependencyHandler)
+   */
+  dependencyUpdateCheckResult?: (json: string) => void;
+
+  /**
+   * Manual "update one SDK" result callback (DependencyHandler)
+   */
+  dependencyUpdateResult?: (json: string) => void;
 
   /**
    * Node environment status callback

@@ -318,8 +318,8 @@
     "dependenciesDesc": "Управление установкой и обновлением зависимостей AI SDK",
     "dependency": {
       "title": "Управление зависимостями SDK",
-      "description": "Просмотр состояния установки SDK-зависимостей. Плагин устанавливает и обновляет их автоматически.",
-      "installPolicyTip": "SDK-зависимости устанавливаются и обновляются автоматически; при сбое выполняется автоматическая повторная попытка. Подробности — в журнале IDE.",
+      "description": "Просмотр состояния установки SDK-зависимостей. Плагин устанавливает их автоматически и уведомляет о доступных обновлениях.",
+      "installPolicyTip": "SDK-зависимости устанавливаются автоматически, проверка обновлений выполняется ежедневно. При наличии обновления появляется уведомление — нажмите кнопку в нём, чтобы обновить вручную. Подробности — в журнале IDE.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Необходим для функций Claude AI. Включает Claude Code SDK и связанные зависимости.",
       "codexSdkName": "Codex SDK",
@@ -1425,6 +1425,17 @@
     "hiddenModelCount": "+ {{count}} дополнительных моделей. Введите текст для поиска.",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "Проверить обновления SDK",
+      "checkHint": "Проверить наличие новой версии SDK",
+      "checking": "Проверка обновлений SDK…",
+      "upToDate": "SDK уже последней версии",
+      "action": "Обновить {{name}}: {{current}} → {{latest}}",
+      "updating": "Обновление {{name}}…",
+      "done": "{{name}} обновлён до {{version}} (применится со следующего сообщения)",
+      "checkFailed": "Не удалось проверить обновления (нажмите для повтора)",
+      "updateFailed": "Не удалось обновить {{name}} (нажмите для повтора)"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

@@ -59,7 +59,8 @@ model_provider = "crs"
 base_url = "https://api.example.com/v1"
 name = "crs"
 requires_openai_auth = true
-wire_api = "responses"`);
+# wire_api 填端点支持的协议："chat" = 端点仅支持 Chat Completions（插件会自动经本地代理转换为 Responses API）；"responses" = 端点原生支持 Responses API
+wire_api = "chat"`);
         setAuthJson(`{
   "OPENAI_API_KEY": ""
 }`);

@@ -7,7 +7,6 @@ import com.codeaide.provider.claude.ClaudeSDKBridge;
 import com.codeaide.provider.codex.CodexSDKBridge;
 import com.codeaide.settings.CodeaideSettingsService;
 import com.codeaide.util.LanguageConfigService;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

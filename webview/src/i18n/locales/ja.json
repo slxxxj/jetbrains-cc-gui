@@ -318,8 +318,8 @@
     "dependenciesDesc": "AI SDK依存関係のインストールと更新を管理",
     "dependency": {
       "title": "SDK依存関係管理",
-      "description": "AI SDK 依存関係のインストール状態を表示します。依存関係はプラグインが自動でインストール・更新します。",
-      "installPolicyTip": "SDK 依存関係はプラグインが自動でインストール・更新し、失敗時は自動で再試行します。詳細は IDE ログを確認してください。",
+      "description": "AI SDK 依存関係のインストール状態を表示します。依存関係はプラグインが自動でインストールし、更新がある場合は通知でお知らせします。",
+      "installPolicyTip": "SDK 依存関係はプラグインが自動でインストールし、毎日更新を確認します。更新がある場合は通知が表示され、通知のボタンから手動で更新できます。詳細は IDE ログを確認してください。",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI機能に必要です。Claude Code SDKと関連依存関係が含まれます。",
       "codexSdkName": "Codex SDK",
@@ -1404,6 +1404,17 @@
     "hiddenModelCount": "+ {{count}} 件のモデルがあります。入力して検索してください。",
     "refreshList": "Refresh model list",
     "refreshListHint": "Fetch the latest model list from the current provider",
+    "sdkUpdate": {
+      "check": "SDK の更新を確認",
+      "checkHint": "SDK に新しいバージョンがあるか確認します",
+      "checking": "SDK の更新を確認中…",
+      "upToDate": "SDK は最新です",
+      "action": "{{name}} を更新: {{current}} → {{latest}}",
+      "updating": "{{name}} を更新中…",
+      "done": "{{name}} を {{version}} に更新しました（次のメッセージから有効）",
+      "checkFailed": "更新の確認に失敗しました（クリックで再試行）",
+      "updateFailed": "{{name}} の更新に失敗しました（クリックで再試行）"
+    },
     "subagent": {
       "title": "Select subagent model",
       "default": "Default (follow main model)",

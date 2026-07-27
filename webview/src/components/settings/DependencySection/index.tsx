@@ -50,8 +50,9 @@ const STATUS_PRESENTATION: Record<SdkInstallStatus, { styleKey: string; labelKey
 /**
  * Read-only SDK dependency status panel.
  *
- * SDK install/update is fully automatic on the backend (silent install on
- * first launch, background updates, automatic retries). This section only
+ * SDK installation is automatic on the backend (silent install on first
+ * launch); updates are checked automatically in the background and applied
+ * only after the user confirms via the update notification. This section only
  * renders the status reported by `get_dependency_status`; all interactive
  * install/uninstall/update/version-selection controls were removed.
  */

@@ -4,8 +4,8 @@ import DependencySection from './index';
 
 const translations: Record<string, string> = {
   'settings.dependency.title': 'SDK 依赖管理',
-  'settings.dependency.description': '查看 AI SDK 依赖的安装状态。依赖由插件自动安装与更新，无需手动操作。',
-  'settings.dependency.installPolicyTip': 'SDK 依赖由插件自动安装与更新；失败会自动重试，详情可查看 IDE 日志。',
+  'settings.dependency.description': '查看 AI SDK 依赖的安装状态。依赖由插件自动安装，发现可用更新时会通知提醒。',
+  'settings.dependency.installPolicyTip': 'SDK 依赖由插件自动安装，并每天自动检查更新；有可用更新时会弹出通知，点击通知中的按钮即可手动更新，详情可查看 IDE 日志。',
   'settings.dependency.loading': '正在加载依赖状态...',
   'settings.dependency.claudeSdkName': 'Claude Code SDK',
   'settings.dependency.codexSdkName': 'Codex SDK',

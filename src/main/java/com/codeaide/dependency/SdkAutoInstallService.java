@@ -1,7 +1,10 @@
 package com.codeaide.dependency;
 
 import com.codeaide.bridge.NodeDetector;
+import com.codeaide.provider.claude.ClaudeSDKBridge;
 import com.codeaide.runtime.NodeRuntimeManager;
+import com.codeaide.ui.toolwindow.ClaudeChatWindow;
+import com.codeaide.ui.toolwindow.ClaudeSDKToolWindow;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationAction;
@@ -18,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,10 +38,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   <li>First run: silently installs every missing {@link SdkDefinition} in the background
  *       using the pinned version. Progress is shown once in the status bar; success stays
  *       quiet, failure raises a single notification with a "Retry" action.</li>
- *   <li>Background auto-update: when all SDKs are installed and the last update check is
- *       older than {@link #UPDATE_CHECK_INTERVAL_MILLIS}, silently checks for updates and
- *       re-installs over the existing directory. Failures keep the old version and never
- *       notify the user.</li>
+ *   <li>Background update check: when all SDKs are installed and the last update check is
+ *       older than {@link #UPDATE_CHECK_INTERVAL_MILLIS}, silently checks for updates and,
+ *       when any are found, raises a single notification listing them (cc-switch style).
+ *       The update is applied only when the user clicks the "Update now" action; check
+ *       failures never notify the user.</li>
  * </ul>
  */
 public final class SdkAutoInstallService {
@@ -56,6 +61,8 @@ public final class SdkAutoInstallService {
     private final DependencyManager dependencyManager;
     /** Guards the whole ensure flow so multi-window startups cannot interleave installs. */
     private final AtomicBoolean runInProgress = new AtomicBoolean(false);
+    /** Guards user-triggered update runs so duplicate notification clicks cannot interleave. */
+    private final AtomicBoolean updateInProgress = new AtomicBoolean(false);
 
     private SdkAutoInstallService() {
         this.dependencyManager = new DependencyManager(NodeDetector.getInstance());
@@ -106,11 +113,53 @@ public final class SdkAutoInstallService {
     }
 
     /**
-     * Decides whether an update check result should trigger a background re-install.
-     * Error results and "already up to date" results are left untouched.
+     * Decides whether an update check result should be surfaced to the user as an
+     * available update. Error results and "already up to date" results are never shown.
      */
     public static boolean shouldApplyUpdate(@Nullable UpdateInfo info) {
         return info != null && info.hasUpdate() && info.getErrorMessage() == null;
+    }
+
+    /**
+     * Builds the one-line summary used in the update notification, e.g.
+     * {@code "Claude Code SDK 0.2.58 → 0.2.88、Codex SDK 0.117.0 → 0.118.0"}.
+     */
+    static String buildUpdateSummary(List<UpdateInfo> updates) {
+        List<String> items = new ArrayList<>();
+        for (UpdateInfo info : updates) {
+            items.add(info.getSdkName() + " " + info.getCurrentVersion()
+                    + " → " + info.getLatestVersion());
+        }
+        return String.join("、", items);
+    }
+
+    /**
+     * Restarts the Claude daemons of every chat window in the given project so the
+     * next message lazily spawns a fresh daemon that loads the newly installed SDK.
+     * This makes an SDK update take effect immediately (hot update — no IDE restart).
+     * No-op when the project is null or a window has no running daemon.
+     */
+    public static void restartClaudeDaemonsForHotUpdate(@Nullable Project project) {
+        if (project == null) {
+            return;
+        }
+        try {
+            Set<ClaudeChatWindow> windows = ClaudeSDKToolWindow.getAllChatWindowsForProject(project);
+            for (ClaudeChatWindow window : windows) {
+                try {
+                    ClaudeSDKBridge bridge = window != null ? window.getClaudeSDKBridge() : null;
+                    if (bridge != null) {
+                        bridge.shutdownDaemon();
+                    }
+                } catch (Exception e) {
+                    LOG.warn("[SdkAutoInstall] Failed to restart daemon for one window: " + e.getMessage());
+                }
+            }
+            LOG.info("[SdkAutoInstall] Claude daemons restarted for hot SDK update (project="
+                    + project.getName() + ")");
+        } catch (Exception e) {
+            LOG.warn("[SdkAutoInstall] Failed to enumerate chat windows for hot update: " + e.getMessage());
+        }
     }
 
     // ==================== Orchestration ====================
@@ -146,7 +195,7 @@ public final class SdkAutoInstallService {
                 } else {
                     // Nothing to install: (maybe) run the silent update check, then release.
                     try {
-                        maybeAutoUpdateSilently();
+                        maybeCheckForUpdates(project);
                     } finally {
                         runInProgress.set(false);
                     }
@@ -241,10 +290,11 @@ public final class SdkAutoInstallService {
     }
 
     /**
-     * Silent background auto-update. Throttled to once per {@link #UPDATE_CHECK_INTERVAL_MILLIS};
-     * never notifies the user, and a failed update always keeps the previously installed version.
+     * Silent background update check, throttled to once per {@link #UPDATE_CHECK_INTERVAL_MILLIS}.
+     * Check failures never notify the user; when updates are found, a single notification is
+     * raised and the update is applied only after the user clicks the update action.
      */
-    private void maybeAutoUpdateSilently() {
+    private void maybeCheckForUpdates(@Nullable Project project) {
         long now = System.currentTimeMillis();
         long lastCheck = readLastUpdateCheck();
         if (!shouldCheckForUpdates(lastCheck, now)) {
@@ -255,30 +305,146 @@ public final class SdkAutoInstallService {
         // Record before checking so a failed check does not retry on every startup.
         writeLastUpdateCheck(now);
 
+        List<UpdateInfo> updates = new ArrayList<>();
         for (SdkDefinition sdk : SdkDefinition.values()) {
             try {
                 if (!dependencyManager.isInstalled(sdk.getId())) {
                     continue;
                 }
                 UpdateInfo info = dependencyManager.checkForUpdates(sdk.getId());
-                if (!shouldApplyUpdate(info)) {
-                    continue;
-                }
-                LOG.info("[SdkAutoInstall] Auto-updating " + sdk.getId() + " from "
-                        + info.getCurrentVersion() + " to " + info.getLatestVersion());
-                InstallResult result = dependencyManager.installSdkSync(sdk.getId(),
-                        line -> LOG.debug("[SdkAutoInstall] update " + sdk.getId() + ": " + line));
-                if (result.isSuccess()) {
-                    LOG.info("[SdkAutoInstall] Auto-updated " + sdk.getId()
-                            + " to " + result.getInstalledVersion());
-                } else {
-                    LOG.warn("[SdkAutoInstall] Auto-update failed for " + sdk.getId()
-                            + " (" + result.getErrorMessage() + "); keeping previous version");
+                if (shouldApplyUpdate(info)) {
+                    updates.add(info);
                 }
             } catch (Exception e) {
-                LOG.warn("[SdkAutoInstall] Auto-update failed for " + sdk.getId()
-                        + ": " + e.getMessage() + "; keeping previous version");
+                LOG.warn("[SdkAutoInstall] Update check failed for " + sdk.getId()
+                        + ": " + e.getMessage());
             }
+        }
+
+        if (updates.isEmpty()) {
+            LOG.info("[SdkAutoInstall] Update check completed; all SDKs are up to date");
+            return;
+        }
+        notifyUpdateAvailable(project, updates);
+    }
+
+    /**
+     * Raises a single notification listing the available updates. The update runs only when
+     * the user clicks the "Update now" action (cc-switch style manual update).
+     */
+    private void notifyUpdateAvailable(@Nullable Project project, List<UpdateInfo> updates) {
+        try {
+            String content = "以下 AI SDK 组件有可用更新：" + buildUpdateSummary(updates) + "。";
+            Notification notification = NotificationGroupManager.getInstance()
+                    .getNotificationGroup(NOTIFICATION_GROUP_ID)
+                    .createNotification("SDK 依赖有可用更新", content, NotificationType.INFORMATION);
+            notification.addAction(NotificationAction.createSimpleExpiring("立即更新",
+                    () -> applyUpdatesWithProgress(project, updates)));
+            notification.notify(project);
+        } catch (Exception e) {
+            LOG.warn("[SdkAutoInstall] Failed to raise update notification: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Applies the given updates sequentially in a background task (npm install is not
+     * interruptible, so cancellation is disabled). A failed update keeps the previously
+     * installed version.
+     */
+    private void applyUpdatesWithProgress(@Nullable Project project, List<UpdateInfo> updates) {
+        if (!updateInProgress.compareAndSet(false, true)) {
+            LOG.info("[SdkAutoInstall] An update run is already in progress; ignoring duplicate trigger");
+            return;
+        }
+        ProgressManager.getInstance().run(new Task.Backgroundable(project, "Updating AI SDK dependencies", false) {
+            private final List<UpdateInfo> failedUpdates = new ArrayList<>();
+            private final AtomicBoolean claudeSdkUpdated = new AtomicBoolean(false);
+
+            @Override
+            public void run(@NotNull ProgressIndicator indicator) {
+                indicator.setIndeterminate(true);
+                int total = updates.size();
+                for (int i = 0; i < total; i++) {
+                    UpdateInfo info = updates.get(i);
+                    indicator.setText("Updating " + info.getSdkName() + " (" + (i + 1) + "/" + total + ")...");
+                    LOG.info("[SdkAutoInstall] Updating " + info.getSdkId() + " from "
+                            + info.getCurrentVersion() + " to " + info.getLatestVersion());
+                    try {
+                        InstallResult result = dependencyManager.installSdkSync(info.getSdkId(),
+                                info.getLatestVersion(),
+                                line -> LOG.debug("[SdkAutoInstall] update " + info.getSdkId() + ": " + line));
+                        if (result.isSuccess()) {
+                            LOG.info("[SdkAutoInstall] Updated " + info.getSdkId()
+                                    + " to " + result.getInstalledVersion());
+                            if (SdkDefinition.CLAUDE_SDK.getId().equals(info.getSdkId())) {
+                                claudeSdkUpdated.set(true);
+                            }
+                        } else {
+                            LOG.warn("[SdkAutoInstall] Update failed for " + info.getSdkId()
+                                    + ": " + result.getErrorMessage());
+                            failedUpdates.add(info);
+                        }
+                    } catch (Exception e) {
+                        LOG.warn("[SdkAutoInstall] Update failed for " + info.getSdkId()
+                                + ": " + e.getMessage(), e);
+                        failedUpdates.add(info);
+                    }
+                }
+            }
+
+            @Override
+            public void onFinished() {
+                updateInProgress.set(false);
+                if (claudeSdkUpdated.get()) {
+                    // Hot update: restart Claude daemons so the next message loads the new SDK.
+                    restartClaudeDaemonsForHotUpdate(getProject());
+                }
+                if (failedUpdates.isEmpty()) {
+                    notifyUpdateSuccess(getProject(), updates.size(), claudeSdkUpdated.get());
+                } else {
+                    notifyUpdateFailure(getProject(), new ArrayList<>(failedUpdates));
+                }
+            }
+        });
+    }
+
+    /**
+     * Raises a single non-modal notification when all requested updates completed.
+     */
+    private void notifyUpdateSuccess(@Nullable Project project, int updatedCount, boolean claudeSdkUpdated) {
+        try {
+            String content = "已成功更新 " + updatedCount + " 个 AI SDK 组件。"
+                    + (claudeSdkUpdated ? "Claude 运行时已自动重载，无需重启 IDE。" : "");
+            Notification notification = NotificationGroupManager.getInstance()
+                    .getNotificationGroup(NOTIFICATION_GROUP_ID)
+                    .createNotification("SDK 依赖更新完成", content, NotificationType.INFORMATION);
+            notification.notify(project);
+        } catch (Exception e) {
+            LOG.warn("[SdkAutoInstall] Failed to raise update success notification: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Raises a single non-modal notification offering a retry for the failed updates.
+     * The previously installed versions are kept.
+     */
+    private void notifyUpdateFailure(@Nullable Project project, List<UpdateInfo> failedUpdates) {
+        try {
+            List<String> failedNames = new ArrayList<>();
+            for (UpdateInfo info : failedUpdates) {
+                failedNames.add(info.getSdkName());
+            }
+            String content = "以下 AI SDK 组件更新失败："
+                    + String.join("、", failedNames)
+                    + "。已保留旧版本，请检查网络/Node.js 环境后重试。";
+            Notification notification = NotificationGroupManager.getInstance()
+                    .getNotificationGroup(NOTIFICATION_GROUP_ID)
+                    .createNotification("SDK 依赖更新失败", content, NotificationType.WARNING);
+            notification.addAction(NotificationAction.createSimpleExpiring("重试",
+                    () -> applyUpdatesWithProgress(project, failedUpdates)));
+            notification.notify(project);
+        } catch (Exception e) {
+            LOG.warn("[SdkAutoInstall] Failed to raise update failure notification: " + e.getMessage());
         }
     }
 

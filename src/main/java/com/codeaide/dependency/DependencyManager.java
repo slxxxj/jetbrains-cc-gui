@@ -182,6 +182,30 @@ public class DependencyManager {
      * Fetches the latest version from the NPM Registry.
      */
     public String getLatestVersion(String sdkId) {
+        String latest = getLatestVersionFromRegistry(sdkId);
+        if (latest != null) {
+            return latest;
+        }
+
+        SdkDefinition sdk = SdkDefinition.fromId(sdkId);
+        if (sdk == null) {
+            return null;
+        }
+        List<String> fallbackVersions = sdk.getFallbackVersions();
+        if (!fallbackVersions.isEmpty()) {
+            return fallbackVersions.get(0);
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetches the latest version from the NPM Registry without any hardcoded
+     * fallback. Returns {@code null} when the registry cannot be reached, so
+     * callers (e.g. the manual "check for updates" action) can distinguish
+     * "check failed" from "already up to date".
+     */
+    public String getLatestVersionFromRegistry(String sdkId) {
         SdkDefinition sdk = SdkDefinition.fromId(sdkId);
         if (sdk == null) {
             return null;
@@ -217,11 +241,6 @@ public class DependencyManager {
             }
         } catch (Exception e) {
             LOG.warn("[DependencyManager] Failed to get latest version: " + e.getMessage());
-        }
-
-        List<String> fallbackVersions = sdk.getFallbackVersions();
-        if (!fallbackVersions.isEmpty()) {
-            return fallbackVersions.get(0);
         }
 
         return null;
@@ -842,7 +861,7 @@ public class DependencyManager {
      *
      * @return negative if v1 < v2, 0 if equal, positive if v1 > v2
      */
-    private int compareVersions(String v1, String v2) {
+    public static int compareVersions(String v1, String v2) {
         if (v1 == null || v2 == null) {
             return 0;
         }
@@ -941,7 +960,7 @@ public class DependencyManager {
     /**
      * Parses a single segment of a version string.
      */
-    private int parseVersionPart(String part) {
+    private static int parseVersionPart(String part) {
         // Strip non-numeric suffixes (e.g. -beta, -alpha)
         Pattern pattern = Pattern.compile("^(\\d+)");
         Matcher matcher = pattern.matcher(part);
