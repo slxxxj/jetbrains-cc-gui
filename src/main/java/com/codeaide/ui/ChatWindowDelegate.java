@@ -23,6 +23,7 @@ import com.codeaide.handler.PromptHandler;
 import com.codeaide.handler.provider.CustomModelPricingHandler;
 import com.codeaide.handler.provider.ProviderHandler;
 import com.codeaide.handler.RewindHandler;
+import com.codeaide.handler.RecallHandler;
 import com.codeaide.handler.SessionHandler;
 import com.codeaide.handler.SettingsHandler;
 import com.codeaide.handler.SkillHandler;
@@ -291,6 +292,7 @@ public class ChatWindowDelegate {
         messageDispatcher.registerHandler(new PromptHandler(handlerContext));
         messageDispatcher.registerHandler(new TabHandler(handlerContext));
         messageDispatcher.registerHandler(new RewindHandler(handlerContext));
+        messageDispatcher.registerHandler(new RecallHandler(handlerContext));
         messageDispatcher.registerHandler(new UndoFileHandler(handlerContext));
         messageDispatcher.registerHandler(new DependencyHandler(handlerContext));
         messageDispatcher.registerHandler(new ClipboardHandler(handlerContext));

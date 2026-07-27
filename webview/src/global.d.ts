@@ -838,6 +838,7 @@ interface Window {
    * Rewind result callback - returns the result of a rewind operation
    */
   onRewindResult?: (json: string) => void;
+  onRecallResult?: (json: string) => void;
 
   /**
    * Undo file result callback - returns the result of a single-file undo operation

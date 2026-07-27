@@ -1682,6 +1682,24 @@
     "enable": "활성화",
     "cancel": "취소"
   },
+  "recall": {
+    "button": "이 메시지 회수",
+    "title": "메시지 회수",
+    "recallTo": "회수 위치",
+    "impact": "영향",
+    "discardCount": "이 메시지를 포함해 {{count}}개를 삭제합니다",
+    "filesRestore": "수정된 파일 약 {{count}}개를 복원합니다",
+    "noFilesRestore": "복원할 파일 변경 사항이 없습니다",
+    "textRestored": "메시지 내용이 입력창으로 복원됩니다",
+    "firstMessageNote": "첫 번째 메시지입니다: 회수하면 세션이 삭제되고 다음 전송 시 새 세션이 시작됩니다",
+    "cannotUndo": "이 작업은 되돌릴 수 없습니다.",
+    "confirm": "회수",
+    "recalling": "회수 중…",
+    "success": "회수했습니다",
+    "successWithWarning": "회수했지만 파일 복원에 문제가 있습니다",
+    "failed": "회수 실패",
+    "notAvailable": "이 메시지는 회수할 수 없습니다"
+  },
   "rewind": {
     "title": "파일을 이전 상태로 되돌리기",
     "tooltip": "되돌리기",

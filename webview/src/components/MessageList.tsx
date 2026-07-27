@@ -66,6 +66,8 @@ interface MessageListProps {
   onCollapsedCountChange?: (count: number) => void;
   onNavigateToProviderSettings?: () => void;
   onNavigateToDependencySettings?: () => void;
+  /** Recall (撤回) handler forwarded to user messages; undefined hides the button. */
+  onRecallMessage?: (message: ClaudeMessage) => void;
   /** Current active provider id; forwarded to MessageItem for streaming-connect label. */
   currentProvider?: string;
 }
@@ -87,6 +89,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
   onCollapsedCountChange,
   onNavigateToProviderSettings,
   onNavigateToDependencySettings,
+  onRecallMessage,
   currentProvider,
 }, ref) {
   // Number of earlier messages revealed beyond VISIBLE_MESSAGE_WINDOW. Grows in
@@ -190,6 +193,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
             onNodeRef={onMessageNodeRef}
             onNavigateToProviderSettings={onNavigateToProviderSettings}
             onNavigateToDependencySettings={onNavigateToDependencySettings}
+            onRecallMessage={onRecallMessage}
             toolResultSignature={toolResultSignature}
             currentProvider={currentProvider}
           />

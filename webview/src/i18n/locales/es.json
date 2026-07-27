@@ -1565,6 +1565,24 @@
     "enable": "Habilitar",
     "cancel": "Cancelar"
   },
+  "recall": {
+    "button": "Retirar este mensaje",
+    "title": "Retirar mensaje",
+    "recallTo": "Retirar hasta",
+    "impact": "Impacto",
+    "discardCount": "Se descartarán {{count}} mensaje(s), incluido este",
+    "filesRestore": "Se restaurarán aproximadamente {{count}} archivo(s) modificado(s)",
+    "noFilesRestore": "No hay cambios de archivos que restaurar",
+    "textRestored": "El texto del mensaje se restaurará en el cuadro de entrada",
+    "firstMessageNote": "Primer mensaje: la sesión se eliminará y se iniciará una nueva en el próximo envío",
+    "cannotUndo": "Esta acción no se puede deshacer.",
+    "confirm": "Retirar",
+    "recalling": "Retirando…",
+    "success": "Mensaje retirado",
+    "successWithWarning": "Retirado, pero la restauración de archivos tuvo problemas",
+    "failed": "Error al retirar",
+    "notAvailable": "Este mensaje no se puede retirar"
+  },
   "rewind": {
     "title": "Restaurar archivos al estado anterior",
     "tooltip": "Restaurar archivos a su estado en este mensaje",

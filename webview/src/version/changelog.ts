@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '0.1.2',
+    date: '2026-07-27',
+    content: {
+      en: `✨ Features
+- Add **message recall (撤回)**: every user message shows an undo button on hover (top-right). Confirming recalls the conversation to that message — the message preview, the number of messages to discard, and the estimated file restorations are shown up front. The recalled text is restored to the input box
+- Recall is a message-level combination of **frontend truncation + file restore + JSONL persistence** (unlike file rewind, which only restores files): the user message and everything after it is removed from the chat, files modified afterwards are reverted via the SDK checkpoint rewind, and the truncation is written back to the session JSONL
+- **First-message recall** deletes the session file entirely and resets the session id, so the next send starts a brand-new SDK session`,
+      zh: `✨ 新功能
+- 新增**消息撤回**：每条用户消息右上角 hover 显示撤回按钮。点击后弹出确认框，展示消息预览、将丢弃的消息数和预计恢复的文件数；确认后对话回退到该消息，消息文本恢复到输入框
+- 撤回是消息级别的**前端截断 + 文件恢复 + JSONL 持久化**组合（区别于只恢复文件的文件回溯）：该用户消息及其后的所有消息从聊天中移除，其后的文件修改通过 SDK 检查点回退，截断结果同步写回会话 JSONL 文件
+- **撤回首条消息**会删除整个会话文件并重置 sessionId，下次发送将开启全新 SDK 会话`,
+    },
+  },
+  {
     version: '0.1.1',
     date: '2026-07-27',
     content: {

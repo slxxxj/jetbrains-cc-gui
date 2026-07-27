@@ -4,6 +4,7 @@ import type { PermissionRequest } from '../components/PermissionDialog';
 import type { AskUserQuestionRequest } from '../components/AskUserQuestionDialog';
 import type { PlanApprovalRequest } from '../components/PlanApprovalDialog';
 import type { RewindRequest } from '../components/RewindDialog';
+import type { RecallRequest } from '../components/RecallDialog';
 import type { ContextUsageData } from '../components/ContextUsageDialog';
 import { sendBridgeEvent } from '../utils/bridge';
 
@@ -49,6 +50,14 @@ interface UseDialogManagementReturn {
   rewindSelectDialogOpen: boolean;
   setRewindSelectDialogOpen: (open: boolean) => void;
 
+  // Recall dialog (message-level 撤回)
+  recallDialogOpen: boolean;
+  setRecallDialogOpen: (open: boolean) => void;
+  currentRecallRequest: RecallRequest | null;
+  setCurrentRecallRequest: (request: RecallRequest | null) => void;
+  isRecalling: boolean;
+  setIsRecalling: (loading: boolean) => void;
+
   // Context usage dialog
   contextUsageDialogOpen: boolean;
   contextUsageIsLoading: boolean;
@@ -90,6 +99,11 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
 
   // Rewind select dialog state
   const [rewindSelectDialogOpen, setRewindSelectDialogOpen] = useState(false);
+
+  // Recall dialog state (message-level 撤回)
+  const [recallDialogOpen, setRecallDialogOpen] = useState(false);
+  const [currentRecallRequest, setCurrentRecallRequest] = useState<RecallRequest | null>(null);
+  const [isRecalling, setIsRecalling] = useState(false);
 
   // Context usage dialog state
   const [contextUsageDialogOpen, setContextUsageDialogOpen] = useState(false);
@@ -435,6 +449,14 @@ export function useDialogManagement({ t }: UseDialogManagementOptions): UseDialo
     // Rewind select dialog
     rewindSelectDialogOpen,
     setRewindSelectDialogOpen,
+
+    // Recall dialog
+    recallDialogOpen,
+    setRecallDialogOpen,
+    currentRecallRequest,
+    setCurrentRecallRequest,
+    isRecalling,
+    setIsRecalling,
 
     // Context usage dialog
     contextUsageDialogOpen,

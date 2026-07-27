@@ -10,6 +10,7 @@ import {
   useStreamingMessages,
   useWindowCallbacks,
   useRewindHandlers,
+  useRecallHandlers,
   useHistoryLoader,
   useMessageQueue,
   useThemeInit,
@@ -38,7 +39,7 @@ import { useUIState } from './contexts/UIStateContext';
 import { useDialogs } from './contexts/DialogContext';
 import { AppDialogs } from './components/AppDialogs';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from './utils/permissionDialogTimeout';
-import { supportsPlanMode } from './utils/providerCapabilities';
+import { supportsPlanMode, getProviderCapabilities } from './utils/providerCapabilities';
 
 const App = () => {
   const { t } = useTranslation();
@@ -59,6 +60,8 @@ const App = () => {
     closeContextUsageDialog,
     setRewindDialogOpen, setCurrentRewindRequest,
     isRewinding, setIsRewinding, setRewindSelectDialogOpen,
+    currentRecallRequest, setCurrentRecallRequest,
+    setRecallDialogOpen, setIsRecalling,
   } = useDialogs();
 
   // ── Messages flow state (extracted to MessagesContext, stage 1 of TASK-P1-01) ──
@@ -89,6 +92,7 @@ const App = () => {
     toasts, addToast, dismissToast, clearToasts,
     setContextInfo,
     searchOpen, setSearchOpen,
+    setDraftInput,
   } = useUIState();
 
   // ── Permission dialog timeout (synced with backend config) ──
@@ -421,6 +425,18 @@ const App = () => {
     setIsRewinding, isRewinding,
   });
 
+  // ── Recall (撤回) handlers: message-level truncation + file restore + JSONL persistence ──
+  const {
+    handleRecallClick, handleRecallConfirm, handleRecallCancel,
+  } = useRecallHandlers({
+    t, addToast,
+    messages, setMessages,
+    currentSessionId, setCurrentSessionId,
+    setDraftInput,
+    currentRecallRequest, setCurrentRecallRequest,
+    setRecallDialogOpen, setIsRecalling,
+  });
+
   const statusPanelExpanded = !userCollapsedRef.current;
 
   // ── Render ──
@@ -496,6 +512,7 @@ const App = () => {
           onRewind={handleOpenRewindSelectDialog}
           onNavigateToProviderSettings={handleNavigateToProviderSettings}
           onProviderSelect={wrappedHandleProviderSelect}
+          onRecallMessage={getProviderCapabilities(currentProvider).supportsRewind ? handleRecallClick : undefined}
           currentProvider={currentProvider}
           selectedModel={selectedModel}
           permissionMode={permissionMode}
@@ -556,6 +573,8 @@ const App = () => {
         onRewindSelectCancel={handleRewindSelectCancel}
         onRewindConfirm={handleRewindConfirm}
         onRewindCancel={handleRewindCancel}
+        onRecallConfirm={handleRecallConfirm}
+        onRecallCancel={handleRecallCancel}
         currentProvider={currentProvider}
         permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
       />

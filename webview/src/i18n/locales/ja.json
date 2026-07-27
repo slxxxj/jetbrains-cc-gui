@@ -1570,6 +1570,24 @@
     "enable": "有効にする",
     "cancel": "キャンセル"
   },
+  "recall": {
+    "button": "このメッセージを取り消す",
+    "title": "メッセージを取り消す",
+    "recallTo": "取り消し位置",
+    "impact": "影響",
+    "discardCount": "このメッセージを含む {{count}} 件を破棄します",
+    "filesRestore": "変更された約 {{count}} 個のファイルを復元します",
+    "noFilesRestore": "復元するファイル変更はありません",
+    "textRestored": "メッセージ本文は入力ボックスに復元されます",
+    "firstMessageNote": "最初のメッセージです：取り消すとセッションが削除され、次回送信時に新しいセッションが開始されます",
+    "cannotUndo": "この操作は元に戻せません。",
+    "confirm": "取り消す",
+    "recalling": "取り消し中…",
+    "success": "取り消しました",
+    "successWithWarning": "取り消しましたが、ファイルの復元に問題がありました",
+    "failed": "取り消しに失敗しました",
+    "notAvailable": "このメッセージは取り消せません"
+  },
   "rewind": {
     "title": "ファイルを以前の状態に巻き戻す",
     "tooltip": "このメッセージ時点のファイル状態に復元",

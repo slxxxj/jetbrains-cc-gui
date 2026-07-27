@@ -39,6 +39,8 @@ export interface MessageItemProps {
   toolResultSignature?: string;
   /** Current active provider id (e.g. 'claude', 'codex'); drives the streaming-connect label. */
   currentProvider?: string;
+  /** Recall (撤回) this user message: truncate chat + restore files + persist. */
+  onRecallMessage?: (message: ClaudeMessage) => void;
 }
 
 /** Map provider id to a human-readable label used in UI text. */
@@ -335,6 +337,7 @@ export const MessageItem = memo(function MessageItem({
   onNavigateToDependencySettings,
   toolResultSignature: _toolResultSignature,
   currentProvider,
+  onRecallMessage,
 }: MessageItemProps): React.ReactElement {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const [showStreamingConnectHint, setShowStreamingConnectHint] = useState(false);
@@ -706,6 +709,15 @@ export const MessageItem = memo(function MessageItem({
               copyLabel={t('markdown.copyMessage')}
               copySuccessText={t('markdown.copySuccess')}
             />
+          )}
+          {onRecallMessage && hasCopyableText && !streamingActive && !isThinking && (
+            <button
+              className="message-recall-btn"
+              onClick={(e) => { e.stopPropagation(); onRecallMessage(message); }}
+              title={t('recall.button', 'Recall this message')}
+            >
+              <span className="codicon codicon-undo" />
+            </button>
           )}
         </div>
       )}

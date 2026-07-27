@@ -1727,6 +1727,24 @@
     "enable": "Ativar",
     "cancel": "Cancelar"
   },
+  "recall": {
+    "button": "Retirar esta mensagem",
+    "title": "Retirar mensagem",
+    "recallTo": "Retirar até",
+    "impact": "Impacto",
+    "discardCount": "{{count}} mensagem(ns) serão descartadas, incluindo esta",
+    "filesRestore": "Cerca de {{count}} arquivo(s) modificado(s) serão restaurados",
+    "noFilesRestore": "Nenhuma alteração de arquivo para restaurar",
+    "textRestored": "O texto da mensagem será restaurado na caixa de entrada",
+    "firstMessageNote": "Primeira mensagem: a sessão será excluída e uma nova começará no próximo envio",
+    "cannotUndo": "Esta ação não pode ser desfeita.",
+    "confirm": "Retirar",
+    "recalling": "Retirando…",
+    "success": "Mensagem retirada",
+    "successWithWarning": "Retirada, mas a restauração de arquivos teve problemas",
+    "failed": "Falha ao retirar",
+    "notAvailable": "Esta mensagem não pode ser retirada"
+  },
   "rewind": {
     "title": "Reverter Arquivos ao Estado Anterior",
     "tooltip": "Reverter",

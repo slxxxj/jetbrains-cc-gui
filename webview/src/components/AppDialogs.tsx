@@ -5,6 +5,7 @@ import PermissionDialog from './PermissionDialog';
 import AskUserQuestionDialog from './AskUserQuestionDialog';
 import PlanApprovalDialog from './PlanApprovalDialog';
 import RewindDialog from './RewindDialog';
+import RecallDialog from './RecallDialog';
 import RewindSelectDialog, { type RewindableMessage } from './RewindSelectDialog';
 import ChangelogDialog from './ChangelogDialog';
 import CustomModelDialog from './settings/CustomModelDialog';
@@ -57,6 +58,8 @@ export interface AppDialogsProps {
   onRewindSelectCancel: ComponentProps<typeof RewindSelectDialog>['onCancel'];
   onRewindConfirm: ComponentProps<typeof RewindDialog>['onConfirm'];
   onRewindCancel: ComponentProps<typeof RewindDialog>['onCancel'];
+  onRecallConfirm: ComponentProps<typeof RecallDialog>['onConfirm'];
+  onRecallCancel: ComponentProps<typeof RecallDialog>['onCancel'];
   /** Provider id for the add-model dialog (lives in useModelProviderState). */
   currentProvider: string;
   /** Permission dialog timeout in seconds (from backend config). */
@@ -81,6 +84,8 @@ export const AppDialogs = ({
   onRewindSelectCancel,
   onRewindConfirm,
   onRewindCancel,
+  onRecallConfirm,
+  onRecallCancel,
   currentProvider,
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
 }: AppDialogsProps) => {
@@ -93,6 +98,7 @@ export const AppDialogs = ({
     planApprovalDialogOpen, currentPlanApprovalRequest,
     handlePlanApprovalApprove, handlePlanApprovalReject,
     rewindSelectDialogOpen, rewindDialogOpen, currentRewindRequest, isRewinding,
+    recallDialogOpen, currentRecallRequest, isRecalling,
     contextUsageDialogOpen, contextUsageIsLoading, contextUsageData, closeContextUsageDialog,
   } = useDialogs();
   const {
@@ -185,6 +191,13 @@ export const AppDialogs = ({
         isLoading={isRewinding}
         onConfirm={onRewindConfirm}
         onCancel={onRewindCancel}
+      />
+      <RecallDialog
+        isOpen={recallDialogOpen}
+        request={currentRecallRequest}
+        isLoading={isRecalling}
+        onConfirm={onRecallConfirm}
+        onCancel={onRecallCancel}
       />
       <ChangelogDialog
         isOpen={showChangelogDialog}

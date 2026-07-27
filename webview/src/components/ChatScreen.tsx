@@ -77,6 +77,8 @@ export interface ChatScreenProps {
   onRewind: () => void;
   onNavigateToProviderSettings: () => void;
   onProviderSelect: (providerId: string) => void;
+  /** Recall (撤回) a user message; undefined hides the per-message recall button. */
+  onRecallMessage?: (message: ClaudeMessage) => void;
 
   // Model / provider state (slice from useModelProviderState)
   currentProvider: ProviderState['currentProvider'];
@@ -134,6 +136,7 @@ export const ChatScreen = ({
   onUndoFile, onDiscardAll, onKeepAll,
   onSubmit, onInterrupt, onRewind,
   onNavigateToProviderSettings, onProviderSelect,
+  onRecallMessage,
   currentProvider, selectedModel, permissionMode, selectedAgent,
   sdkStatusLoaded, currentSdkInstalled,
   activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
@@ -253,6 +256,7 @@ export const ChatScreen = ({
                   onMessageNodeRef={onMessageNodeRef}
                   onCollapsedCountChange={setAnchorCollapsedCount}
                   onNavigateToProviderSettings={onNavigateToProviderSettings}
+                  onRecallMessage={onRecallMessage}
                   onNavigateToDependencySettings={() => {
                     setSettingsInitialTab('dependencies');
                     setCurrentView('settings');

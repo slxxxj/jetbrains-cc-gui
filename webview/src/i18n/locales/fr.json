@@ -1565,6 +1565,24 @@
     "enable": "Activer",
     "cancel": "Annuler"
   },
+  "recall": {
+    "button": "Rappeler ce message",
+    "title": "Rappeler le message",
+    "recallTo": "Rappeler jusqu'à",
+    "impact": "Impact",
+    "discardCount": "{{count}} message(s) seront supprimés, celui-ci inclus",
+    "filesRestore": "Environ {{count}} fichier(s) modifié(s) seront restaurés",
+    "noFilesRestore": "Aucune modification de fichier à restaurer",
+    "textRestored": "Le texte du message sera restauré dans la zone de saisie",
+    "firstMessageNote": "Premier message : la session sera supprimée et une nouvelle démarrera au prochain envoi",
+    "cannotUndo": "Cette action est irréversible.",
+    "confirm": "Rappeler",
+    "recalling": "Rappel en cours…",
+    "success": "Message rappelé",
+    "successWithWarning": "Rappelé, mais la restauration des fichiers a rencontré des problèmes",
+    "failed": "Échec du rappel",
+    "notAvailable": "Ce message ne peut pas être rappelé"
+  },
   "rewind": {
     "title": "Restaurer les fichiers à l'état précédent",
     "tooltip": "Restaurer les fichiers à leur état à ce message",

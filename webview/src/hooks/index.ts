@@ -24,3 +24,5 @@ export type { ViewMode, UseModelProviderStateOptions } from './useModelProviderS
 export type { UseMessageProcessingOptions } from './useMessageProcessing';
 export type { UseMessageSenderOptions } from './useMessageSender';
 export type { UseFileChangesManagementOptions, FileChange } from './useFileChangesManagement';
+export { useRecallHandlers } from './useRecallHandlers';
+export type { UseRecallHandlersOptions, UseRecallHandlersReturn } from './useRecallHandlers';

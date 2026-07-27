@@ -30,6 +30,7 @@ All credit for the original work goes to the upstream authors and contributors.
 
 Building on the excellent foundation of CC GUI, CodeAide keeps polishing the experience with these additions:
 
+- **↩️ Message Recall** — roll the conversation back to any user message: frontend truncation + file restore + JSONL persistence in one action, with the recalled text restored to the input box; recalling the first message deletes the session and starts fresh
 - **⚡ Quick Prompts** — a one-click preset instruction panel in the chat input toolbar: Explain Code, Find & Fix Bug, Write Tests, Refactor, Optimize Performance, Code Review, Write Docs, Add Comments. Bilingual (zh/en), fills the input box ready to edit or send — and you can save your own favorite instructions from the current input (persisted locally)
 - **🎨 Premium new brand & icon** — indigo-violet gradient "A + AI spark" identity, applied to the tool window, plugin icon, status bar and docs
 - **🔴 Non-intrusive update notices** — version updates show an unread red dot on the version tag instead of force-opening the changelog dialog

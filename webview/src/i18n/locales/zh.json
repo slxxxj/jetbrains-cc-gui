@@ -1832,6 +1832,24 @@
       "skill": "Skill"
     }
   },
+  "recall": {
+    "button": "撤回此消息",
+    "title": "撤回消息",
+    "recallTo": "撤回到",
+    "impact": "影响",
+    "discardCount": "将丢弃 {{count}} 条消息（含本条）",
+    "filesRestore": "将恢复约 {{count}} 个被修改的文件",
+    "noFilesRestore": "没有需要恢复的文件修改",
+    "textRestored": "消息文本将恢复到输入框",
+    "firstMessageNote": "这是首条消息：撤回后当前会话将被删除，下次发送开启全新会话",
+    "cannotUndo": "此操作不可撤销。",
+    "confirm": "确认撤回",
+    "recalling": "正在撤回…",
+    "success": "已撤回",
+    "successWithWarning": "已撤回，但文件恢复出现问题",
+    "failed": "撤回失败",
+    "notAvailable": "此消息无法撤回"
+  },
   "rewind": {
     "title": "回溯文件到之前的状态",
     "tooltip": "回溯",

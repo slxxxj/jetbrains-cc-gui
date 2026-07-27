@@ -1827,6 +1827,24 @@
       "skill": "Skill"
     }
   },
+  "recall": {
+    "button": "Recall this message",
+    "title": "Recall Message",
+    "recallTo": "Recall to",
+    "impact": "Impact",
+    "discardCount": "Will discard {{count}} message(s) including this one",
+    "filesRestore": "Will restore about {{count}} modified file(s)",
+    "noFilesRestore": "No file changes to restore",
+    "textRestored": "The message text will be restored to the input box",
+    "firstMessageNote": "First message: the session will be deleted and a fresh one starts on next send",
+    "cannotUndo": "This action cannot be undone.",
+    "confirm": "Recall",
+    "recalling": "Recalling...",
+    "success": "Message recalled",
+    "successWithWarning": "Recalled, but file restore had issues",
+    "failed": "Recall failed",
+    "notAvailable": "Recall is not available for this message"
+  },
   "rewind": {
     "title": "Rewind Files to Previous State",
     "tooltip": "Rewind",
