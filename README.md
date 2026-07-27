@@ -9,6 +9,7 @@
 **English** · [简体中文](./README.zh-CN.md)
 
 </div>
+自己使用，觉得好用功能会不定时增加功能，看见bug会修复
 
 **CodeAide** is a powerful JetBrains IDE plugin that provides a visual interface for the **Claude Code** and **OpenAI Codex** dual AI tools, making AI-assisted programming more efficient and intuitive.
 
