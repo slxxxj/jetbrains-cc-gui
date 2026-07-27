@@ -36,6 +36,8 @@ export function ChatInputBoxFooter({
   onCodexFastModeChange,
   onSubagentModelSelect,
   onEnhancePrompt,
+  onQuickPromptSelect,
+  getInputText,
   alwaysThinkingEnabled,
   onToggleThinking,
   streamingEnabled,
@@ -75,6 +77,8 @@ export function ChatInputBoxFooter({
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
   onSubagentModelSelect?: (modelId: string) => void;
   onEnhancePrompt: () => void;
+  onQuickPromptSelect?: (text: string) => void;
+  getInputText?: () => string;
   alwaysThinkingEnabled?: boolean;
   onToggleThinking?: (enabled: boolean) => void;
   streamingEnabled?: boolean;
@@ -126,6 +130,8 @@ export function ChatInputBoxFooter({
         onCodexFastModeChange={onCodexFastModeChange}
         onSubagentModelSelect={onSubagentModelSelect}
         onEnhancePrompt={onEnhancePrompt}
+        onQuickPromptSelect={onQuickPromptSelect}
+        getInputText={getInputText}
         alwaysThinkingEnabled={alwaysThinkingEnabled}
         onToggleThinking={onToggleThinking}
         streamingEnabled={streamingEnabled}

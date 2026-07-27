@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
-import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect, SubagentModelSelect } from './selectors';
+import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, QuickPromptSelect, ReasoningSelect, SubagentModelSelect } from './selectors';
 import { STORAGE_KEYS } from '../../types/provider';
 import { readClaudeModelMapping } from '../../utils/claudeModelMapping';
 import { getProviderCapabilities, isKnownProvider } from '../../utils/providerCapabilities';
@@ -33,6 +33,8 @@ export const ButtonArea = ({
   onCodexFastModeChange,
   onSubagentModelSelect,
   onEnhancePrompt,
+  onQuickPromptSelect,
+  getInputText,
   alwaysThinkingEnabled = false,
   onToggleThinking,
   streamingEnabled = true,
@@ -235,6 +237,11 @@ export const ButtonArea = ({
       {/* Right side: tool buttons */}
       <div className="button-area-right">
         <div className="button-divider" />
+
+        {/* Quick prompt presets */}
+        {onQuickPromptSelect && (
+          <QuickPromptSelect onSelect={onQuickPromptSelect} getInputText={getInputText} disabled={disabled || isLoading} />
+        )}
 
         {/* Enhance prompt button */}
         <button

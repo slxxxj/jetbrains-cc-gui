@@ -7,3 +7,4 @@ export { ReasoningSelect } from './ReasoningSelect';
 export { SubagentModelSelect } from './SubagentModelSelect';
 export { CodexFastModeSelect } from './CodexFastModeSelect';
 export { LongContextToggle } from './LongContextToggle';
+export { QuickPromptSelect } from './QuickPromptSelect';

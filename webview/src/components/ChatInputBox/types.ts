@@ -718,6 +718,10 @@ export interface ButtonAreaProps {
   onSubagentModelSelect?: (modelId: string) => void;
   /** Enhance prompt callback */
   onEnhancePrompt?: () => void;
+  /** Quick prompt selected callback (fills the input box with the preset text) */
+  onQuickPromptSelect?: (text: string) => void;
+  /** Returns the current input box text (used by quick prompt "save current") */
+  getInputText?: () => string;
   /** Whether always thinking enabled */
   alwaysThinkingEnabled?: boolean;
   /** Toggle thinking mode */

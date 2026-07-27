@@ -28,7 +28,7 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     private final Project project;
     private StatusBar statusBar;
     private JLabel label;
-    private final AtomicReference<String> textRef = new AtomicReference<>("GUI 🤖");
+    private final AtomicReference<String> textRef = new AtomicReference<>("CodeAide 🤖");
     private final AtomicReference<String> tooltipRef = new AtomicReference<>(CodeAideBundle.message("status.defaultTooltip"));
     private final AtomicLong visibleUntil = new AtomicLong(0);
 
@@ -158,7 +158,7 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
             statusText = CodeAideBundle.message("status.error");
         }
 
-        StringBuilder text = new StringBuilder("GUI " + icon);
+        StringBuilder text = new StringBuilder("CodeAide " + icon);
 
         // Add Model Info (Shorten names)
         if (model != null && !model.isEmpty()) {

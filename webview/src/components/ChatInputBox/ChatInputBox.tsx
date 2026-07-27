@@ -432,6 +432,19 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onInput,
     });
 
+    /**
+     * Quick prompt selection: fill the input box with the
+     * preset instruction, ready to edit or send.
+     */
+    const handleQuickPromptSelect = useCallback((text: string) => {
+      if (!editableRef.current) return;
+      editableRef.current.innerText = text;
+      invalidateCache();
+      setHasContent(true);
+      onInput?.(text);
+      editableRef.current.focus();
+    }, [onInput, invalidateCache]);
+
     const {
       focusInput,
       applyInlineCompletion,
@@ -715,6 +728,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onCodexFastModeChange={onCodexFastModeChange}
           onSubagentModelSelect={onSubagentModelSelect}
           onEnhancePrompt={handleEnhancePrompt}
+          onQuickPromptSelect={handleQuickPromptSelect}
+          getInputText={getTextContent}
           alwaysThinkingEnabled={alwaysThinkingEnabled}
           onToggleThinking={onToggleThinking}
           streamingEnabled={streamingEnabled}

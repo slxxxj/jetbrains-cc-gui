@@ -1,3 +1,25 @@
+##### **2026年7月27日（v0.1.1）**
+
+English:
+
+✨ Features
+- Add **Quick Prompts**: a new ⚡ button in the chat input toolbar opens a panel of 8 one-click preset instructions (Explain Code, Find & Fix Bug, Write Tests, Refactor, Optimize Performance, Code Review, Write Docs, Add Comments), bilingual in Chinese and English — fills the input box, ready to edit or send. You can also save your own frequently used instructions from the current input and delete them later (persisted locally)
+
+🎨 Branding & UX
+- **New premium app icon**: indigo-violet gradient mark with an "A + AI spark" glyph, applied to the tool window, plugin settings icon, status bar and README
+- **Version updates no longer force-open the changelog dialog**: an unread red dot now appears on the version tag (welcome screen) instead, and clears after you view the changelog
+- Status bar widget label changed from "GUI 🤖" to "CodeAide 🤖"
+
+中文:
+
+✨ 新功能
+- 新增**快捷指令**：聊天输入框工具栏新增 ⚡ 按钮，一键调用 8 个精选场景指令（解释代码、修复 Bug、编写测试、代码重构、性能优化、代码审查、编写文档、添加注释），中英双语——自动填入输入框，可编辑后再发送；还可把当前输入一键保存为自己的常用指令（本地持久化），随时删除
+
+🎨 品牌与体验
+- **全新高级图标**：靛蓝-紫渐变 + 字母 A 与 AI 星标，已应用到工具窗口、插件设置图标、状态栏与 README
+- **版本更新不再强制弹出更新日志**：改为在版本号标签（欢迎页）上显示未读红点，查看后自动消除
+- 状态栏组件文案由 "GUI 🤖" 改为 "CodeAide 🤖"
+
 ##### **2026年7月27日（v0.1.0）**
 
 English:
@@ -6,6 +28,8 @@ English:
 - **CodeAide** initial release: the project is now an independent fork of the upstream CC GUI project, fully rebranded to avoid any overlap with the original plugin — new plugin id `com.codeaide`, new Java package `com.codeaide`, new tool window id `CodeAide`, new action id prefix `CodeAide.*`, new resource bundle `messages.CodeAideBundle`, new icon `codeaide-icon.svg`
 - User data directory migrated from `~/.codemoss` to `~/.codeaide` (settings, cache, skills, dependencies, managed Node runtime), so CodeAide can be installed side by side with the original plugin without conflicts
 - Bridge override system property renamed from `claude.bridge.path` to `codeaide.bridge.path`; Node distribution override renamed to `codeaide.node.dist.baseUrl`
+
+中文:
 
 🎉 项目更名
 - **CodeAide** 首个版本：本项目自此作为上游 CC GUI 项目的独立二开分支，完成整体更名，与原插件不再有任何标识冲突 —— 新插件 id `com.codeaide`、新 Java 包名 `com.codeaide`、新工具窗口 id `CodeAide`、新 Action 前缀 `CodeAide.*`、新资源包 `messages.CodeAideBundle`、新图标 `codeaide-icon.svg`
