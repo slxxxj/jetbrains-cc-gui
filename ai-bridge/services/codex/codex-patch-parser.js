@@ -40,8 +40,48 @@ function parseHunkHeader(line) {
 }
 
 /**
+ * Extracts apply_patch text from shell_command arguments (Codex SDK 0.144.x shape).
+ * The SDK persists file edits as function_call name=shell_command with arguments JSON like
+ *   {"command": ["apply_patch", "*** Begin Patch\n..."]}   (argv array, patch in a later entry)
+ *   {"command": "apply_patch <<'EOF'\n*** Begin Patch\n..."} (string form)
+ *   {"cmd": "apply_patch ...*** Begin Patch\n..."}           (cmd-string variant)
+ * Returns '' when the arguments are unparseable or contain no Begin/End Patch markers.
+ */
+export function extractPatchFromShellCommand(argumentsJson) {
+  if (typeof argumentsJson !== 'string' || !argumentsJson) {
+    return '';
+  }
+  let args;
+  try {
+    args = JSON.parse(argumentsJson);
+  } catch {
+    return '';
+  }
+  if (!args || typeof args !== 'object') {
+    return '';
+  }
+
+  const command = args.command ?? args.cmd;
+  if (Array.isArray(command)) {
+    // argv form: the patch text is the argv entry carrying the patch markers
+    // (normally command[1] right after 'apply_patch', but tolerate wrappers like bash -lc).
+    for (const entry of command) {
+      if (typeof entry !== 'string' || entry === 'apply_patch') continue;
+      if (entry.includes('*** Begin Patch')) {
+        return extractPatchFromExecCommand(entry);
+      }
+    }
+    return '';
+  }
+  if (typeof command === 'string') {
+    return extractPatchFromExecCommand(command);
+  }
+  return '';
+}
+
+/**
  * Extracts apply_patch text from a response_item payload.
- * Supports function_call(exec_command/apply_patch) and custom_tool_call(apply_patch).
+ * Supports function_call(exec_command/shell_command/apply_patch) and custom_tool_call(apply_patch).
  */
 export function extractPatchFromResponseItemPayload(payload) {
   if (!payload || typeof payload !== 'object') {
@@ -77,6 +117,10 @@ export function extractPatchFromResponseItemPayload(payload) {
       }
     }
     return '';
+  }
+
+  if (name === 'shell_command') {
+    return extractPatchFromShellCommand(payload.arguments);
   }
 
   if (name !== 'exec_command' || typeof payload.arguments !== 'string') {

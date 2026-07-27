@@ -23,6 +23,15 @@ interface Window {
   updateMessages?: (json: string, sequence?: string | number) => void;
 
   /**
+   * Incremental message upsert from backend (streaming only).
+   * Payload is a JSON array containing just the messages mutated in one
+   * throttle window (typically one); each is matched by streaming-bubble
+   * identity / uuid / tool_use_id and replaced in place or appended.
+   * Shares the updateMessages sequence source (same ordering barrier).
+   */
+  upsertMessage?: (json: string, sequence?: string | number) => void;
+
+  /**
    * Patch a single message UUID without re-sending the full message list.
    */
   patchMessageUuid?: (content: string, uuid: string) => void;
@@ -338,6 +347,11 @@ interface Window {
    * Update AI commit generation enabled state
    */
   updateCommitGenerationEnabled?: (json: string) => void;
+
+  /**
+   * Update commit agent (fan-out) configuration: { batchSize, maxParallel }
+   */
+  updateCommitAgentConfig?: (json: string) => void;
 
   /**
    * Update AI session title generation enabled state
@@ -657,6 +671,12 @@ interface Window {
   updateActiveCodexProvider?: (json: string) => void;
 
   /**
+   * Available models for a provider (dynamic model list, Phase 3B).
+   * Payload: { provider: 'claude' | 'codex', models: [{ id, label, description }], source: 'dynamic' | 'fallback' }
+   */
+  updateAvailableModels?: (json: string) => void;
+
+  /**
    * Update Node process management snapshot.
    * Payload: { snapshotAt, totals: { daemon, channel, orphan, all }, processes: NodeProcessInfo[] }
    */
@@ -711,6 +731,20 @@ interface Window {
    * tool execution phases to prevent the stall watchdog from falsely triggering.
    */
   onStreamingHeartbeat?: () => void;
+
+  /**
+   * Tool preparing callback - fired once when the model starts a tool_use
+   * content block, before its input JSON streams in. Frontend shows a
+   * transient "preparing tool call" hint until the tool card upserts.
+   * @param toolName The name of the tool being prepared (may be empty)
+   */
+  onToolPreparing?: (toolName: string) => void;
+
+  /**
+   * Compact status callback - context compaction lifecycle signal.
+   * @param value "true"/true when compaction starts, "false"/false when it ends
+   */
+  onCompactStatus?: (value: string | boolean) => void;
 
   /**
    * Permission denied callback - called when permission is denied.
@@ -831,24 +865,10 @@ interface Window {
   // ============================================================================
 
   /**
-   * Update dependency status callback
+   * Update dependency status callback (read-only SDK status display;
+   * install/update is fully automatic on the backend)
    */
   updateDependencyStatus?: (json: string) => void;
-
-  /**
-   * Dependency install progress callback
-   */
-  dependencyInstallProgress?: (json: string) => void;
-
-  /**
-   * Dependency install result callback
-   */
-  dependencyInstallResult?: (json: string) => void;
-
-  /**
-   * Dependency uninstall result callback
-   */
-  dependencyUninstallResult?: (json: string) => void;
 
   /**
    * Node environment status callback
@@ -864,26 +884,6 @@ interface Window {
    * Trigger concurrent Node environment checks for diagnostics.
    */
   runNodeEnvironmentStressTest?: (count?: number) => void;
-
-  /**
-   * Dependency update available callback
-   */
-  dependencyUpdateAvailable?: (json: string) => void;
-
-  /**
-   * Dependency versions loaded callback
-   */
-  dependencyVersionsLoaded?: (json: string) => void;
-
-  /**
-   * Pending dependency versions payload before settings initialization
-   */
-  __pendingDependencyVersions?: string;
-
-  /**
-   * Pending dependency updates payload before settings initialization
-   */
-  __pendingDependencyUpdates?: string;
 
   /**
    * Pending dependency status payload before React initialization
@@ -996,6 +996,12 @@ interface Window {
    * parsed payload describing the providers detected during import preview.
    */
   import_preview_result?: (dataOrStr: string | { providers?: unknown }) => void;
+
+  /**
+   * Codex provider import preview result callback. Java pushes a JSON string or
+   * parsed payload describing the Codex providers detected during import preview.
+   */
+  codex_import_preview_result?: (dataOrStr: string | { providers?: unknown }) => void;
 
   /**
    * Backend notification callback (variadic for backward compatibility).

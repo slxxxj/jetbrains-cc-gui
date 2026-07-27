@@ -1,13 +1,15 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { sendBridgeEvent } from '../utils/bridge';
-import {
-  apply1MContextSuffix,
-  normalizeClaudeModelId,
-  strip1MContextSuffix,
-} from '../components/ChatInputBox/types';
+import { apply1MContextSuffix } from '../components/ChatInputBox/types';
 import type { PermissionMode } from '../components/ChatInputBox/types';
 import { isSpecialProviderId } from '../types/provider';
+import {
+  getProviderCapabilities,
+  isKnownProvider,
+  sanitizePermissionMode,
+  selectByProvider,
+} from '../utils/providerCapabilities';
 import { useClaudeProvider } from './providers/useClaudeProvider';
 import { useCodexProvider } from './providers/useCodexProvider';
 import { useUsageTracking } from './providers/useUsageTracking';
@@ -57,6 +59,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     claudePermissionMode, setClaudePermissionMode,
     longContextEnabled, setLongContextEnabled,
     setClaudeSettingsAlwaysThinkingEnabled,
+    selectedSubagentModel, setSelectedSubagentModel,
   } = claude;
   const {
     selectedCodexModel, setSelectedCodexModel,
@@ -76,6 +79,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setLongContextEnabled,
     setReasoningEffort,
     setCodexFastMode,
+    setSelectedSubagentModel,
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
@@ -84,10 +88,14 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     longContextEnabled,
     reasoningEffort,
     codexFastMode,
+    selectedSubagentModel,
   });
 
   // ── Computed values ──
-  const selectedModel = currentProvider === 'codex' ? selectedCodexModel : selectedClaudeModel;
+  const selectedModel = selectByProvider(currentProvider, {
+    claude: selectedClaudeModel,
+    codex: selectedCodexModel,
+  });
   const currentSdkInstalled = useMemo(
     () => isSdkInstalled(currentProvider),
     [isSdkInstalled, currentProvider],
@@ -95,44 +103,49 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
   // ── Cross-provider handlers ──
   const handleModeSelect = useCallback((mode: PermissionMode) => {
-    if (currentProvider === 'codex') {
-      const codexMode: PermissionMode = mode === 'plan' ? 'default' : mode;
-      setPermissionMode(codexMode);
-      setCodexPermissionMode(codexMode);
-      sendBridgeEvent('set_mode', codexMode);
-      return;
-    }
-    setPermissionMode(mode);
-    setClaudePermissionMode(mode);
-    sendBridgeEvent('set_mode', mode);
+    const nextMode = sanitizePermissionMode(currentProvider, mode);
+    setPermissionMode(nextMode);
+    selectByProvider(currentProvider, {
+      claude: setClaudePermissionMode,
+      codex: setCodexPermissionMode,
+    })(nextMode);
+    sendBridgeEvent('set_mode', nextMode);
   }, [currentProvider, setCodexPermissionMode, setClaudePermissionMode]);
 
   const handleModelSelect = useCallback((modelId: string) => {
-    if (currentProvider === 'claude') {
-      const strippedModelId = strip1MContextSuffix(modelId);
-      const normalizedModelId = normalizeClaudeModelId(strippedModelId);
-      setSelectedClaudeModel(normalizedModelId);
-      sendBridgeEvent('set_model', apply1MContextSuffix(normalizedModelId, longContextEnabled));
-    } else if (currentProvider === 'codex') {
-      setSelectedCodexModel(modelId);
-      sendBridgeEvent('set_model', modelId);
+    if (!isKnownProvider(currentProvider)) {
+      return;
     }
+    const capabilities = getProviderCapabilities(currentProvider);
+    const normalizedModelId = capabilities.normalizeModelId(modelId);
+    selectByProvider(currentProvider, {
+      claude: setSelectedClaudeModel,
+      codex: setSelectedCodexModel,
+    })(normalizedModelId);
+    sendBridgeEvent('set_model', capabilities.supportsLongContext
+      ? apply1MContextSuffix(normalizedModelId, longContextEnabled)
+      : normalizedModelId);
   }, [currentProvider, longContextEnabled, setSelectedClaudeModel, setSelectedCodexModel]);
 
   const handleProviderSelect = useCallback((providerId: string) => {
     setCurrentProvider(providerId);
     sendBridgeEvent('set_provider', providerId);
 
-    const modeToSet: PermissionMode = providerId === 'codex'
-      ? (codexPermissionMode === 'plan' ? 'default' : codexPermissionMode)
-      : claudePermissionMode;
+    const capabilities = getProviderCapabilities(providerId);
+    const modeToSet = sanitizePermissionMode(providerId, selectByProvider(providerId, {
+      claude: claudePermissionMode,
+      codex: codexPermissionMode,
+    }));
     setPermissionMode(modeToSet);
     sendBridgeEvent('set_mode', modeToSet);
 
-    const newModel = providerId === 'codex'
-      ? selectedCodexModel
-      : apply1MContextSuffix(selectedClaudeModel, longContextEnabled);
-    sendBridgeEvent('set_model', newModel);
+    const newModel = selectByProvider(providerId, {
+      claude: selectedClaudeModel,
+      codex: selectedCodexModel,
+    });
+    sendBridgeEvent('set_model', capabilities.supportsLongContext
+      ? apply1MContextSuffix(newModel, longContextEnabled)
+      : newModel);
   }, [
     claudePermissionMode,
     codexPermissionMode,
@@ -143,10 +156,17 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
 
   const handleLongContextChange = useCallback((enabled: boolean) => {
     setLongContextEnabled(enabled);
-    if (currentProvider === 'claude') {
+    if (getProviderCapabilities(currentProvider).supportsLongContext) {
       sendBridgeEvent('set_model', apply1MContextSuffix(selectedClaudeModel, enabled));
     }
   }, [currentProvider, selectedClaudeModel, setLongContextEnabled]);
+
+  // Subagent model is Claude-only state that travels per request inside the
+  // send_message payload — no immediate bridge event is needed (unlike the
+  // main model, which the backend tracks via set_model). '' = default.
+  const handleSubagentModelSelect = useCallback((modelId: string) => {
+    setSelectedSubagentModel(modelId);
+  }, [setSelectedSubagentModel]);
 
   const handleToggleThinking = useCallback((enabled: boolean) => {
     const config = settings.activeProviderConfig;
@@ -202,5 +222,6 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     handleProviderSelect,
     handleLongContextChange,
     handleToggleThinking,
+    handleSubagentModelSelect,
   };
 }

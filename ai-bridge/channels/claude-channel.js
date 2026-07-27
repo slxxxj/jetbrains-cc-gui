@@ -1,6 +1,12 @@
 /**
  * Claude channel command handler – isolates all Claude specific command logic
  * away from the shared channel-manager entry point.
+ *
+ * The same handler serves both dispatch modes (see channels/registry.js):
+ * - per-process mode (channel-manager.js): runs commands against one-shot
+ *   services; commands that need a persistent runtime report an error.
+ * - daemon mode (daemon.js): send-family and runtime commands run against the
+ *   persistent query service so they reuse the warm runtime.
  */
 import {
   sendMessage as claudeSendMessage,
@@ -10,25 +16,43 @@ import {
   getMcpServerTools as claudeGetMcpServerTools
 } from '../services/claude/message-service.js';
 import {
-  resetRuntimePersistent as claudeResetRuntimePersistent
+  sendMessagePersistent as claudeSendMessagePersistent,
+  sendMessageWithAttachmentsPersistent as claudeSendMessageWithAttachmentsPersistent,
+  preconnectPersistent as claudePreconnectPersistent,
+  resetRuntimePersistent as claudeResetRuntimePersistent,
+  getContextUsagePersistent as claudeGetContextUsagePersistent,
+  setPermissionModePersistent as claudeSetPermissionModePersistent
 } from '../services/claude/persistent-query-service.js';
 import {
   getSessionMessages as claudeGetSessionMessages,
   getLatestUserMessage as claudeGetLatestUserMessage
 } from '../services/claude/session-service.js';
+import { listModels } from '../services/model-list-service.js';
+import { emit } from '../protocol/emitter.js';
+import { registerChannel } from './registry.js';
+import { CLAUDE_SDK_DESCRIPTOR } from './sdk-descriptors.js';
 
 /**
  * Execute a Claude specific command.
  * @param {string} command
  * @param {string[]} args
  * @param {object|null} stdinData
+ * @param {object} [context] dispatch context; { isDaemonMode: true } when the
+ *   long-running daemon dispatches the command (persistent runtime available)
  */
-export async function handleClaudeCommand(command, args, stdinData) {
+export async function handleClaudeCommand(command, args, stdinData, context) {
+  const isDaemonMode = context?.isDaemonMode === true;
   switch (command) {
     case 'send': {
+      if (isDaemonMode) {
+        // Daemon mode: reuse the persistent runtime instead of spawning a
+        // per-request process.
+        await claudeSendMessagePersistent(stdinData || {});
+        break;
+      }
       if (stdinData && stdinData.message !== undefined) {
         // Include streaming and disableThinking when destructuring
-        const { message, sessionId, cwd, permissionMode, model, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort } = stdinData;
+        const { message, sessionId, cwd, permissionMode, model, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort, subagentModel } = stdinData;
         await claudeSendMessage(
           message,
           sessionId || '',
@@ -39,7 +63,8 @@ export async function handleClaudeCommand(command, args, stdinData) {
           agentPrompt || null,
           streaming,  // Pass streaming parameter
           disableThinking || false,  // Pass disableThinking parameter
-          reasoningEffort || null  // Pass reasoning effort level
+          reasoningEffort || null,  // Pass reasoning effort level
+          subagentModel || null  // Pass subagent model override
         );
       } else {
         await claudeSendMessage(args[0], args[1], args[2], args[3], args[4]);
@@ -48,16 +73,20 @@ export async function handleClaudeCommand(command, args, stdinData) {
     }
 
     case 'sendWithAttachments': {
+      if (isDaemonMode) {
+        await claudeSendMessageWithAttachmentsPersistent(stdinData || {});
+        break;
+      }
       if (stdinData && stdinData.message !== undefined) {
         // Include streaming when destructuring
-        const { message, sessionId, cwd, permissionMode, model, attachments, openedFiles, agentPrompt, streaming, reasoningEffort } = stdinData;
+        const { message, sessionId, cwd, permissionMode, model, attachments, openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel } = stdinData;
         await claudeSendMessageWithAttachments(
           message,
           sessionId || '',
           cwd || '',
           permissionMode || '',
           model || '',
-          attachments ? { attachments, openedFiles, agentPrompt, streaming, reasoningEffort } : { openedFiles, agentPrompt, streaming, reasoningEffort }
+          attachments ? { attachments, openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel } : { openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel }
         );
       } else {
         await claudeSendMessageWithAttachments(args[0], args[1], args[2], args[3], args[4], stdinData);
@@ -101,12 +130,24 @@ export async function handleClaudeCommand(command, args, stdinData) {
       break;
     }
 
+    case 'preconnect': {
+      if (!isDaemonMode) {
+        throw new Error(`Unknown Claude command: ${command}`);
+      }
+      await claudePreconnectPersistent(stdinData || {});
+      break;
+    }
+
     case 'resetRuntime': {
       await claudeResetRuntimePersistent(stdinData || {});
       break;
     }
 
     case 'getContextUsage': {
+      if (isDaemonMode) {
+        await claudeGetContextUsagePersistent(stdinData || {});
+        break;
+      }
       // getContextUsage requires a persistent runtime (daemon mode).
       // In per-process mode, there is no persistent runtime, so return an error.
       console.log(JSON.stringify({
@@ -116,11 +157,31 @@ export async function handleClaudeCommand(command, args, stdinData) {
       break;
     }
 
+    case 'setPermissionMode': {
+      if (!isDaemonMode) {
+        throw new Error(`Unknown Claude command: ${command}`);
+      }
+      await claudeSetPermissionModePersistent(stdinData || {});
+      break;
+    }
+
+    case 'listModels': {
+      // Dynamic model catalog for the webview selector. Never throws for
+      // provider-side failures — the service reports source:'fallback' so the
+      // webview can degrade to its built-in list. Emitted as a 'result'
+      // envelope: {id, type:'result', data:{provider, models, source, error?}}.
+      const result = await listModels('claude', { refresh: stdinData?.refresh === true });
+      emit('result', result);
+      break;
+    }
+
     default:
       throw new Error(`Unknown Claude command: ${command}`);
   }
 }
 
 export function getClaudeCommandList() {
-  return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools', 'resetRuntime', 'getContextUsage'];
+  return ['send', 'sendWithAttachments', 'getSession', 'getLatestUserMessage', 'rewindFiles', 'getMcpServerStatus', 'getMcpServerTools', 'resetRuntime', 'getContextUsage', 'listModels'];
 }
+
+registerChannel('claude', handleClaudeCommand, { sdk: CLAUDE_SDK_DESCRIPTOR });

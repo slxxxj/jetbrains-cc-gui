@@ -27,7 +27,7 @@ export interface HistoryItem {
 
 /**
  * Keep the stored history bounded to avoid unbounded localStorage growth.
- * Note: The actual limit is 200 in the backend (.codemoss)
+ * Note: The actual limit is 200 in the backend (.codeaide)
  */
 export const MAX_HISTORY_ITEMS = 200;
 export const INVISIBLE_CHARS_RE = /[\u200B-\u200D\uFEFF]/g;
@@ -283,7 +283,7 @@ export function cleanupCounts(
 
 /**
  * Delete a specific history item
- * Dual-write: localStorage + .codemoss
+ * Dual-write: localStorage + .codeaide
  */
 export function deleteHistoryItem(item: string): void {
   // Write to localStorage (sync)
@@ -307,13 +307,13 @@ export function deleteHistoryItem(item: string): void {
     }
   }
 
-  // Also sync to .codemoss (async)
+  // Also sync to .codeaide (async)
   sendToJava('delete_input_history_item', item);
 }
 
 /**
  * Clear all history items
- * Dual-write: localStorage + .codemoss
+ * Dual-write: localStorage + .codeaide
  */
 export function clearAllHistory(): void {
   // Write to localStorage (sync)
@@ -327,7 +327,7 @@ export function clearAllHistory(): void {
     }
   }
 
-  // Also sync to .codemoss (async)
+  // Also sync to .codeaide (async)
   sendToJava('clear_input_history', {});
 }
 

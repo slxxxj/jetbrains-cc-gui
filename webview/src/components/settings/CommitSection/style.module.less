@@ -109,6 +109,36 @@
   }
 }
 
+.agentConfigRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.agentConfigLabel {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.agentNumberInput {
+  width: 90px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.15);
+  }
+}
+
 /* 响应式适配 */
 @media (max-width: 480px) {
   .promptTextarea {

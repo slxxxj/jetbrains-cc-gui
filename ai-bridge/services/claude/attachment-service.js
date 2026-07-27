@@ -11,7 +11,7 @@ import crypto from 'crypto';
 import { modelSupportsVision } from '../../utils/model-utils.js';
 
 // Image temp directory shared across the daemon's lifetime.
-const TEMP_IMAGE_SUBDIR = 'cc-gui-images';
+const TEMP_IMAGE_SUBDIR = 'codeaide-images';
 // Files older than 24h are removed at daemon startup to bound disk growth.
 const TEMP_IMAGE_TTL_MS = 24 * 60 * 60 * 1000;
 

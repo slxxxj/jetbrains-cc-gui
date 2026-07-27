@@ -92,6 +92,8 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[已上傳附件]",
     "streamingConnected": "{{provider}} 已成功連接，正在理解問題",
+    "preparingToolCall": "正在準備工具調用：{{toolName}}",
+    "compactingContext": "正在壓縮上下文",
     "showEarlierMessages": "顯示之前的 {{count}} 則訊息",
     "totalDuration": "本次耗時",
     "tokenUsage": "輸入 {{input}} / 輸出 {{output}}",
@@ -316,28 +318,17 @@
     "dependenciesDesc": "管理 AI SDK 依賴套件的安裝和更新",
     "dependency": {
       "title": "SDK 依賴管理",
-      "description": "管理 AI SDK 依賴套件。首次使用時需要安裝對應的 SDK。",
-      "installPolicyTip": "安裝遇到問題？可將報錯複製給終端CLI AI 解決",
+      "description": "檢視 AI SDK 相依性的安裝狀態。相依性由外掛自動安裝與更新，無需手動操作。",
+      "installPolicyTip": "SDK 相依性由外掛自動安裝與更新；失敗會自動重試，詳情可查看 IDE 日誌。",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相關依賴。",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Codex AI 功能所需。包含 OpenAI Codex SDK。",
       "loading": "正在載入依賴狀態...",
-      "install": "安裝",
-      "installing": "安裝中...",
-      "uninstall": "解除安裝",
-      "uninstalling": "解除安裝中...",
-      "update": "更新",
-      "updateAvailable": "有更新",
-      "installLogs": "安裝日誌",
-      "waitingForLogs": "等待日誌輸出...",
-      "nodeNotConfigured": "Node.js 未配置，請先在基礎配置中設定 Node.js 路徑。",
-      "installSuccess": "{{name}} 安裝成功",
-      "installFailed": "安裝失敗: {{error}}",
-      "uninstallSuccess": "{{name}} 已解除安裝",
-      "uninstallFailed": "解除安裝失敗: {{error}}",
-      "updating": "更新中...",
-      "updateSuccess": "{{name}} 更新成功"
+      "statusInstalled": "已安裝",
+      "statusNotInstalled": "未安裝",
+      "statusInstalling": "安裝中…",
+      "statusError": "安裝失敗，自動重試中"
     },
     "usage": "使用統計",
     "usageDesc": "檢視您的 Token 消耗、費用統計和使用趨勢分析",
@@ -365,12 +356,20 @@
       "prompt": {
         "label": "Additional Prompt",
         "placeholder": "Add your extra requirements here, e.g., generate commit in English, include issue number, etc...",
-        "hint": "The plugin has built-in CCG Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
+        "hint": "The plugin has built-in CodeAide Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
       },
       "projectPrompt": {
         "label": "專案級附加提示詞",
         "placeholder": "在此新增當前專案的專屬要求，例如：scope 必須使用模組名、commit body 需包含影響範圍等...",
         "hint": "此提示詞僅對當前專案生效，與全域附加提示詞同時拼接。當兩者內容矛盾時，以專案提示詞為準。不同專案可獨立配置。"
+      },
+      "agentConfig": {
+        "label": "並行 Agent（大量檔案）",
+        "batchSize": "每個 agent 處理的檔案數",
+        "maxParallel": "最大並行 agent 數",
+        "fastMode": "快速模式（停用思考）",
+        "includeFileDetail": "附加檔案變更明細",
+        "hint": "當變更檔案數超過每批數量時，將按批並行呼叫多個 agent 分別概括，再彙總產生一條 commit message，避免大型提交逾時。"
       },
       "codeReview": {
         "comingSoon": "Coming Soon",
@@ -510,6 +509,7 @@
       "cliLoginDisableTitle": "取消 CLI 登入授權",
       "cliLoginDisableMessage": "此操作會停止使用 CLI 登入狀態，並讓 Claude 處於未啟用任何供應商的狀態，直到您再次顯式啟用其它供應商。",
       "cliLoginAccountInfo": "已登入：{{email}}",
+      "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
       "subscriptionTutorial": {
         "entry": "訂閱制帳號教學",
         "dialogTitle": "如何使用訂閱制帳號",
@@ -535,7 +535,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "如果還是不行，可以去GitHub留言排查：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Codex 訂閱制帳號使用方式",
@@ -549,7 +549,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "如果還是不行，可以去GitHub留言排查：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -596,7 +596,7 @@
         "customModels": "自訂模型",
         "customModelsHint": "新增此供應商支援的額外模型，自訂模型將顯示在模型選擇列表的最前面",
         "jsonConfig": "配置 JSON",
-        "jsonConfigDescription": "此處可配置完整的 settings.json 內容，支援所有欄位（如 model、alwaysThinkingEnabled、ccSwitchProviderId、codemossProviderId 等）",
+        "jsonConfigDescription": "此處可配置完整的 settings.json 內容，支援所有欄位（如 model、alwaysThinkingEnabled、ccSwitchProviderId、codeaideProviderId 等）",
         "jsonError": "JSON 格式無效",
         "required": "*",
         "showApiKey": "顯示",
@@ -662,6 +662,7 @@
         "cliLoginAuthorizeDetail": "請確保您已透過終端執行 'codex login' 登入。當前的 config.toml 將被備份。",
         "cliLoginDisableTitle": "停用 Codex CLI 登入",
         "cliLoginDisableMessage": "將恢復先前的 config.toml 並切換 API Key 認證方式。",
+        "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
         "modelIdRequired": "Model ID is required",
         "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
         "modelIdDuplicate": "Model ID already exists",
@@ -1401,6 +1402,13 @@
     "searchPlaceholder": "搜尋模型",
     "noModelsFound": "找不到模型",
     "hiddenModelCount": "+ 還有 {{count}} 個模型。輸入以搜尋。",
+    "refreshList": "Refresh model list",
+    "refreshListHint": "Fetch the latest model list from the current provider",
+    "subagent": {
+      "title": "Select subagent model",
+      "default": "Default (follow main model)",
+      "defaultDescription": "Subagents use the main model"
+    },
     "claude": {
       "sonnet46": {
         "label": "Sonnet 4.6",
@@ -1673,18 +1681,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "SDK 安裝不完整 — 缺少 native 二進位檔",
-      "intro": "這是淘寶 npm 鏡像源的已知問題（非外掛 bug）。鏡像源未完整同步 platform 檔案。可手動按以下方案處理：",
+      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug) — the mirror hasn't fully synchronized the platform-specific files. The plugin will retry the installation automatically; you can also speed up recovery with the option below:",
       "reason": "淘寶源同步完成後此問題會自動消失，無需擔心。",
       "solutions": {
         "switchRegistry": {
-          "title": "方案一：暫時切換官方源重新安裝",
+          "title": "Option 1: Switch to the official registry and let the plugin retry",
           "step0": "1. 在終端機執行（切換到 npm 官方源）：",
-          "step1": "2. 開啟外掛設定中的「相依性管理」，點選重新安裝：",
-          "step2": "3. 重新安裝完成後，切回淘寶源："
-        },
-        "downgrade": {
-          "title": "方案二：版本回退",
-          "step0": "在「相依性管理」中將 SDK 版本切換到 v0.2.112 或更早版本，切換後需要重新啟動 IDEA。"
+          "step1": "2. The plugin retries the installation automatically; afterwards you can switch back to the Taobao mirror (optional). Check the logs if it still fails:"
         }
       }
     },
@@ -1698,9 +1701,8 @@
           "step0": "在終端機執行以下指令查看版本號。建議使用 Node 22 或目前最新 LTS 版本 — 使用者反饋 Node 24 報錯較多，請優先使用 20 或 22："
         },
         "reinstallLatestSdk": {
-          "title": "方案二：用 npm 官方源重新安裝最新版 SDK",
-          "step0": "1. 切換到 npm 官方源（淘寶源可能未同步最新版本，請勿使用淘寶源安裝）：",
-          "step1": "2. 開啟「相依性管理」重新安裝最新版 SDK："
+          "title": "Option 2: Switch to the official npm registry and let the plugin reinstall the latest SDK",
+          "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
     }

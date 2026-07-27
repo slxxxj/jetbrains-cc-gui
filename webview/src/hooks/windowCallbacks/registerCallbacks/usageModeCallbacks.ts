@@ -9,9 +9,15 @@
 
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { PermissionMode } from '../../../components/ChatInputBox/types';
-import { isValidPermissionMode, normalizeClaudeModelId } from '../../../components/ChatInputBox/types';
+import { isValidPermissionMode } from '../../../components/ChatInputBox/types';
 import { drainPendingSettings, startInitialSettingsRequest } from '../settingsBootstrap';
 import { clampPermissionDialogTimeoutSeconds } from '../../../utils/permissionDialogTimeout';
+import {
+  getProviderCapabilities,
+  isKnownProvider,
+  sanitizePermissionMode,
+  selectByProvider,
+} from '../../../utils/providerCapabilities';
 
 export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): void {
   const {
@@ -70,35 +76,33 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
   const updateMode = (mode?: PermissionMode, providerOverride?: string) => {
     const activeProvider = providerOverride || currentProviderRef.current;
     if (isValidPermissionMode(mode)) {
-      const nextMode: PermissionMode =
-        activeProvider === 'codex' && mode === 'plan' ? 'default' : mode;
+      const nextMode = sanitizePermissionMode(activeProvider, mode);
       setPermissionMode((prev) => (prev === nextMode ? prev : nextMode));
-      if (activeProvider === 'codex') {
-        setCodexPermissionMode((prev) => (prev === nextMode ? prev : nextMode));
-      } else {
-        setClaudePermissionMode((prev) => (prev === nextMode ? prev : nextMode));
-      }
+      selectByProvider(activeProvider, {
+        claude: setClaudePermissionMode,
+        codex: setCodexPermissionMode,
+      })((prev) => (prev === nextMode ? prev : nextMode));
     }
   };
 
   window.onModeChanged = (mode) => updateMode(mode as PermissionMode);
   window.onModeReceived = (mode) => updateMode(mode as PermissionMode);
 
+  const applyConfirmedModel = (provider: string, modelId: string) => {
+    if (!isKnownProvider(provider)) return;
+    const normalized = getProviderCapabilities(provider).normalizeModelId(modelId);
+    selectByProvider(provider, {
+      claude: setSelectedClaudeModel,
+      codex: setSelectedCodexModel,
+    })(normalized);
+  };
+
   window.onModelChanged = (modelId) => {
-    const provider = currentProviderRef.current;
-    if (provider === 'claude') {
-      setSelectedClaudeModel(normalizeClaudeModelId(modelId));
-    } else if (provider === 'codex') {
-      setSelectedCodexModel(modelId);
-    }
+    applyConfirmedModel(currentProviderRef.current, modelId);
   };
 
   window.onModelConfirmed = (modelId, provider) => {
-    if (provider === 'claude') {
-      setSelectedClaudeModel(normalizeClaudeModelId(modelId));
-    } else if (provider === 'codex') {
-      setSelectedCodexModel(modelId);
-    }
+    applyConfirmedModel(provider, modelId);
   };
 
   window.updateActiveProvider = (jsonStr: string) => {

@@ -20,6 +20,7 @@ import {
   preserveLatestMessagesOnShrink,
   preserveStreamingAssistantContent,
   stripDuplicateTrailingToolMessages,
+  upsertMessagesIntoList,
 } from '../messageSync';
 import { releaseSessionTransition } from '../sessionTransition';
 import { parseSequence } from '../parseSequence';
@@ -75,6 +76,7 @@ export function registerMessageCallbacks(
     setLoading,
     setLoadingStartTime,
     setIsThinking,
+    setStreamingHint,
     setHistoryData,
     userPausedRef,
     isUserAtBottomRef,
@@ -435,6 +437,76 @@ export function registerMessageCallbacks(
     }
 
     processUpdateMessages(json, sequence);
+  };
+
+  // Incremental single-message channel used during streaming.  The backend
+  // coalescer batches one throttle window of mutated messages into a JSON
+  // array and pushes it here instead of re-sending the full conversation.
+  // Sequence semantics (barrier + monotonic bump) are shared with
+  // updateMessages; the authoritative full snapshot still lands at stream end.
+  window.upsertMessage = (json, sequenceArg) => {
+    if (window.__sessionTransitioning) return;
+    const sequence = parseSequence(sequenceArg);
+    const minAcceptedSequence = window.__minAcceptedUpdateSequence ?? 0;
+    if (sequence != null && sequence < minAcceptedSequence) {
+      return;
+    }
+
+    // Receiving upserts proves the backend→frontend bridge is alive mid-stream
+    // (e.g. tool_use / thinking block updates between content deltas), so feed
+    // the stall watchdog exactly like updateMessages does.
+    if (isStreamingRef.current && window.__lastStreamActivityAt !== undefined) {
+      window.__lastStreamActivityAt = Date.now();
+    }
+
+    let incomingList: ClaudeMessage[];
+    try {
+      const parsed = JSON.parse(json);
+      incomingList = (Array.isArray(parsed) ? parsed : [parsed]) as ClaudeMessage[];
+    } catch (error) {
+      console.error('[Frontend] Failed to parse upsert messages:', error);
+      return;
+    }
+    if (incomingList.length === 0) return;
+    if (sequence != null) {
+      window.__minAcceptedUpdateSequence = Math.max(minAcceptedSequence, sequence);
+    }
+
+    // The tool card for a "preparing" tool_use now renders — drop the
+    // transient tool_preparing hint. Only that hint kind is cleared: a
+    // compacting hint is unrelated to structural upserts.
+    const upsertCarriesToolUse = incomingList.some(
+      (msg) => msg?.type === 'assistant'
+        && extractRawBlocks(msg.raw).some((block) => block?.type === 'tool_use'),
+    );
+    if (upsertCarriesToolUse) {
+      setStreamingHint?.((prev) => (prev?.kind === 'tool_preparing' ? null : prev));
+    }
+
+    setMessages((prev) => {
+      const { list, streamingMessageIndex } = upsertMessagesIntoList(prev, incomingList, {
+        isStreaming: isStreamingRef.current,
+        streamingTurnId: streamingTurnIdRef.current,
+        streamingMessageIndex: streamingMessageIndexRef.current,
+      });
+      if (list === prev) return prev;
+      if (streamingMessageIndex >= 0) {
+        streamingMessageIndexRef.current = streamingMessageIndex;
+      }
+      // Same preservation pipeline as the streaming branch of
+      // processUpdateMessages, minus the list-shape repairs (an upsert never
+      // shrinks the list or drops the optimistic tail by construction).
+      let merged = preserveLastAssistantIdentity(prev, list, findLastAssistantIndex);
+      merged = preserveStreamingAssistantContent(
+        prev,
+        merged,
+        isStreamingRef,
+        streamingContentRef,
+        findLastAssistantIndex,
+        patchAssistantForStreaming,
+      );
+      return finalizeMessageList(prev, merged);
+    });
   };
 
   const pendingMessages = (window as unknown as Record<string, unknown>).__pendingUpdateMessages;

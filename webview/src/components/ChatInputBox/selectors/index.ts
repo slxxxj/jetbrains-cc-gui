@@ -4,5 +4,6 @@ export { ProviderSelect } from './ProviderSelect';
 export { RuntimeProviderSelect } from './RuntimeProviderSelect';
 export { ConfigSelect } from './ConfigSelect';
 export { ReasoningSelect } from './ReasoningSelect';
+export { SubagentModelSelect } from './SubagentModelSelect';
 export { CodexFastModeSelect } from './CodexFastModeSelect';
 export { LongContextToggle } from './LongContextToggle';

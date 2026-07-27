@@ -5,6 +5,7 @@ import {
   mapModelIdToSdkName,
   resolveModelFromSettings,
   setModelEnvironmentVariables,
+  setSubagentModelEnvironmentVariable,
   modelSupportsVision,
 } from './model-utils.js';
 
@@ -154,6 +155,41 @@ test('setModelEnvironmentVariables routes haiku base to haiku env', () => {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
+  }
+});
+
+// --- setSubagentModelEnvironmentVariable ----------------------------------
+
+test('setSubagentModelEnvironmentVariable sets the env var for a selected model', () => {
+  const previous = process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+  try {
+    delete process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+
+    setSubagentModelEnvironmentVariable('claude-haiku-4-5');
+
+    assert.equal(process.env.CLAUDE_CODE_SUBAGENT_MODEL, 'claude-haiku-4-5');
+  } finally {
+    if (previous === undefined) delete process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+    else process.env.CLAUDE_CODE_SUBAGENT_MODEL = previous;
+  }
+});
+
+test('setSubagentModelEnvironmentVariable clears residue when the request has no selection', () => {
+  const previous = process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+  try {
+    // A value left behind by an earlier turn inside the long-lived daemon must
+    // not leak into a request that carries no subagent model selection.
+    process.env.CLAUDE_CODE_SUBAGENT_MODEL = 'stale-model';
+
+    setSubagentModelEnvironmentVariable(null);
+    assert.equal(process.env.CLAUDE_CODE_SUBAGENT_MODEL, undefined);
+
+    process.env.CLAUDE_CODE_SUBAGENT_MODEL = 'stale-model';
+    setSubagentModelEnvironmentVariable('   ');
+    assert.equal(process.env.CLAUDE_CODE_SUBAGENT_MODEL, undefined);
+  } finally {
+    if (previous === undefined) delete process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+    else process.env.CLAUDE_CODE_SUBAGENT_MODEL = previous;
   }
 });
 

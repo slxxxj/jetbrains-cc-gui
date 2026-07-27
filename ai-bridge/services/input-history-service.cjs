@@ -1,15 +1,15 @@
 /**
  * Input history service module
  * Responsible for persistent storage of user input history
- * Storage location: ~/.codemoss/inputHistory.json
+ * Storage location: ~/.codeaide/inputHistory.json
  */
 
 const fs = require('fs');
 const path = require('path');
-const { getCodemossDir } = require('../utils/path-utils.cjs');
+const { getCodeaideDir } = require('../utils/path-utils.cjs');
 
-const CODEMOSS_DIR = getCodemossDir();
-const HISTORY_FILE = path.join(CODEMOSS_DIR, 'inputHistory.json');
+const CODEAIDE_DIR = getCodeaideDir();
+const HISTORY_FILE = path.join(CODEAIDE_DIR, 'inputHistory.json');
 
 /** Maximum number of history items */
 const MAX_HISTORY_ITEMS = 200;
@@ -21,8 +21,8 @@ const MAX_COUNT_RECORDS = 200;
  * Ensure the directory exists
  */
 function ensureDir() {
-  if (!fs.existsSync(CODEMOSS_DIR)) {
-    fs.mkdirSync(CODEMOSS_DIR, { recursive: true });
+  if (!fs.existsSync(CODEAIDE_DIR)) {
+    fs.mkdirSync(CODEAIDE_DIR, { recursive: true });
   }
 }
 

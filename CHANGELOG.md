@@ -1,3 +1,17 @@
+##### **2026年7月27日（v0.1.0）**
+
+English:
+
+🎉 Project Rebrand
+- **CodeAide** initial release: the project is now an independent fork of the upstream CC GUI project, fully rebranded to avoid any overlap with the original plugin — new plugin id `com.codeaide`, new Java package `com.codeaide`, new tool window id `CodeAide`, new action id prefix `CodeAide.*`, new resource bundle `messages.CodeAideBundle`, new icon `codeaide-icon.svg`
+- User data directory migrated from `~/.codemoss` to `~/.codeaide` (settings, cache, skills, dependencies, managed Node runtime), so CodeAide can be installed side by side with the original plugin without conflicts
+- Bridge override system property renamed from `claude.bridge.path` to `codeaide.bridge.path`; Node distribution override renamed to `codeaide.node.dist.baseUrl`
+
+🎉 项目更名
+- **CodeAide** 首个版本：本项目自此作为上游 CC GUI 项目的独立二开分支，完成整体更名，与原插件不再有任何标识冲突 —— 新插件 id `com.codeaide`、新 Java 包名 `com.codeaide`、新工具窗口 id `CodeAide`、新 Action 前缀 `CodeAide.*`、新资源包 `messages.CodeAideBundle`、新图标 `codeaide-icon.svg`
+- 用户数据目录由 `~/.codemoss` 迁移至 `~/.codeaide`（设置、缓存、Skills、依赖、托管 Node 运行时），可与原插件并存安装互不影响
+- Bridge 覆盖系统属性由 `claude.bridge.path` 更名为 `codeaide.bridge.path`；Node 发行源覆盖属性更名为 `codeaide.node.dist.baseUrl`
+
 ##### **2026年7月9日（v0.4.7）**
 
 English:

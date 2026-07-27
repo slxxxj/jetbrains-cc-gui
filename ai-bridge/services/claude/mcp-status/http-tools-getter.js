@@ -172,7 +172,7 @@ export async function getHttpServerTools(serverName, serverConfig) {
     const initResponse = await sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'codemoss-ide', version: '1.0.0' }
+      clientInfo: { name: 'codeaide-ide', version: '1.0.0' }
     });
 
     if (!initResponse.result) {

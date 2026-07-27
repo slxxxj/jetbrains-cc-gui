@@ -1,6 +1,7 @@
 import { AsyncStream } from '../../utils/async-stream.js';
 import { loadClaudeSdk } from '../../utils/sdk-loader.js';
 import { createPreToolUseHook, normalizePermissionMode } from './permission-mode.js';
+import { emitDaemonEvent } from '../../protocol/emitter.js';
 import {
   beginRuntimeTurn,
   cleanupStaleAnonymousRuntimes as cleanupAnonymousFromRegistry,
@@ -83,7 +84,7 @@ export function createTurnSink() {
   };
 }
 
-export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId) {
+export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId, subagentModelId) {
   const material = {
     cwd: options.cwd || '',
     additionalDirectories: options.additionalDirectories || [],
@@ -97,6 +98,11 @@ export function buildRuntimeSignature(options, systemPromptAppend, streamingEnab
     // it afterwards (see shouldRecreateRuntimeForModel) — so toggling [1m] must
     // change the signature and rebuild the runtime instead of reusing it.
     contextWindow1M: (modelId || '').includes('[1m]'),
+    // CLAUDE_CODE_SUBAGENT_MODEL reaches the CLI only through the spawn-time
+    // env (buildCliEnv), exactly like the [1m] window — a live subprocess never
+    // sees daemon-side env updates. Changing the subagent model must therefore
+    // rebuild the runtime instead of reusing the warm one.
+    subagentModel: subagentModelId || '',
     // bypassPermissions (Auto mode) requires allowDangerouslySkipPermissions,
     // which the SDK passes as a process-launch argv flag — it is frozen at spawn
     // and setPermissionMode() (a runtime control request) cannot add it to a
@@ -250,37 +256,23 @@ async function createRuntime(requestContext, callbacks) {
  */
 export function startPerpetualReader(runtime, callbacks) {
   /**
-   * Emit an inter-turn event using daemon.js's writeRawLine mechanism.
+   * Emit an inter-turn event via the protocol emitter's out-of-band channel.
    *
-   * IMPORTANT: Must bypass activeRequestId interception to avoid misrouting.
+   * IMPORTANT: Must bypass activeRequestId tagging to avoid misrouting.
    *
-   * Why writeRawLine is required:
-   * - daemon.js intercepts process.stdout.write and wraps output with activeRequestId
-   * - If we used console.log() here, the event would be tagged with whatever request
+   * Why emitDaemonEvent is required:
+   * - In daemon mode, business emit() envelopes are tagged with whatever request
    *   is currently active (possibly from a different session)
    * - This would cause the session_updated event to be delivered to the wrong session
-   * - writeRawLine (_originalStdoutWrite) bypasses the interception layer and outputs
-   *   directly to stdout, ensuring the event is process-level and not request-scoped
+   * - emitDaemonEvent writes {type:'daemon', event, ...} with no request id,
+   *   ensuring the event is process-level and not request-scoped
    *
    * The event format {type: 'daemon', event: 'session_updated', sessionId} is recognized
    * by Java's DaemonBridge.handleDaemonEvent() which routes it to registered listeners.
    */
   const emitInterTurnEvent = (sessionId) => {
     try {
-      // Access the global writeRawLine from daemon.js
-      // daemon.js stores the original stdout.write as _originalStdoutWrite
-      // We must use _originalStdoutWrite to bypass activeRequestId wrapping
-      const originalWrite = process.stdout._originalStdoutWrite;
-      if (!originalWrite) {
-        console.error('[PERPETUAL_READER] _originalStdoutWrite not available (daemon.js not initialized?), cannot emit session_updated event');
-        return;
-      }
-      const eventPayload = {
-        type: 'daemon',
-        event: 'session_updated',
-        sessionId: sessionId
-      };
-      originalWrite.call(process.stdout, JSON.stringify(eventPayload) + '\n', 'utf8');
+      emitDaemonEvent('session_updated', { sessionId });
     } catch (err) {
       console.error('[PERPETUAL_READER] Failed to emit session_updated event:', err);
     }

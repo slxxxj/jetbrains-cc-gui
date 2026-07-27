@@ -18,6 +18,7 @@ import {
   type PromptItem,
 } from '../providers/index.js';
 import { setCursorOffset } from '../utils/selectionUtils.js';
+import { getProviderCapabilities } from '../../../utils/providerCapabilities.js';
 
 interface UseChatInputCompletionsCoordinatorOptions {
   editableRef: RefObject<HTMLDivElement | null>;
@@ -219,7 +220,7 @@ export function useChatInputCompletionsCoordinator({
     agentCompletion,
     promptCompletion,
     dollarCommandCompletion,
-    isDollarTriggerEnabled: currentProvider === 'codex',
+    isDollarTriggerEnabled: getProviderCapabilities(currentProvider).supportsDollarTrigger,
   });
 
   // Note: completion objects from useCompletionDropdown are stable references.

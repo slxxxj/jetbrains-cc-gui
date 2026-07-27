@@ -7,9 +7,9 @@ body:
     attributes:
       value: |
         ⚠️ **使用问题建议先查看：**
-        - [README](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui#readme)
-        - [CHANGELOG](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui/blob/main/CHANGELOG.md)
-        - [已关闭的 issue](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui/issues?q=is%3Aissue+is%3Aclosed)
+        - [README](https://github.com/zhukunpenglinyutong/jetbrains-codeaide#readme)
+        - [CHANGELOG](https://github.com/zhukunpenglinyutong/jetbrains-codeaide/blob/main/CHANGELOG.md)
+        - [已关闭的 issue](https://github.com/zhukunpenglinyutong/jetbrains-codeaide/issues?q=is%3Aissue+is%3Aclosed)
         - 12 个 tracking issues（#1093-#1104）
 
         如果还是没找到答案，请填写以下信息。

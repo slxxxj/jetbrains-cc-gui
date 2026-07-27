@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { getClaudeDir, getCodemossDir, getManagedSettingsPath } from '../utils/path-utils.js';
+import { getClaudeDir, getCodeaideDir, getManagedSettingsPath } from '../utils/path-utils.js';
 
 // Conditional debug logging: set CLAUDE_DEBUG=1 to enable verbose diagnostics
 const DEBUG = process.env.CLAUDE_DEBUG === '1' || process.env.CLAUDE_DEBUG === 'true';
@@ -36,7 +36,7 @@ function resolveCliVersionFromSdk() {
   if (_cachedCliVersion) return _cachedCliVersion;
 
   try {
-    const depsBase = join(getCodemossDir(), 'dependencies');
+    const depsBase = join(getCodeaideDir(), 'dependencies');
     const sdkDir = join(depsBase, 'claude-sdk', 'node_modules', '@anthropic-ai', 'claude-agent-sdk');
 
     // Try manifest.json first (contains the bundled CLI version)
@@ -194,7 +194,7 @@ export function isDangerousEnvVar(varName) {
   return DANGEROUS_ENV_VAR_SET.has(String(varName ?? '').toUpperCase());
 }
 
-export function buildWebviewControlledSettingsOverride(modelId) {
+export function buildWebviewControlledSettingsOverride(modelId, subagentModelId) {
   const env = {
     // Empty strings intentionally override settings.json env values while
     // evaluating as "not set" in Claude Code's env-precedence checks.
@@ -205,6 +205,15 @@ export function buildWebviewControlledSettingsOverride(modelId) {
   const normalizedModel = typeof modelId === 'string' ? modelId.trim() : '';
   if (normalizedModel) {
     env.CLAUDE_CODE_DISABLE_1M_CONTEXT = /\[1m\]$/i.test(normalizedModel) ? '' : '1';
+  }
+
+  // The subagent model is webview-owned per request (MODEL_ROUTING_ENV_VARS).
+  // Callers on the send path always pass a string: the selected model, or ''
+  // to neutralize any settings.json copy so "no selection" means "follow the
+  // main model / CLI default". Callers that omit the argument (prompt
+  // enhancer, rewind) leave settings.json copies untouched.
+  if (typeof subagentModelId === 'string') {
+    env.CLAUDE_CODE_SUBAGENT_MODEL = subagentModelId.trim();
   }
 
   return { env };
@@ -367,12 +376,86 @@ function readClaudeSettingsFromDisk() {
   return readJsonFile(join(getClaudeDir(), 'settings.json'));
 }
 
-function loadCodemossConfig() {
-  return readJsonFile(join(getCodemossDir(), 'config.json'));
+function loadCodeaideConfig() {
+  return readJsonFile(join(getCodeaideDir(), 'config.json'));
+}
+
+// Provider-managed settings keys (mirrors ClaudeSettingsManager.PROVIDER_MANAGED_FIELDS
+// on the Java side, minus the provider-id markers). Only these keys are overlaid
+// from a managed provider's settingsConfig onto the effective settings view.
+const PROVIDER_MANAGED_SETTINGS_KEYS = [
+  'env',
+  'model',
+  'alwaysThinkingEnabled',
+  'maxContextLengthTokens',
+  'temperature',
+  'topP',
+  'topK',
+];
+
+// Disk-inheritance whitelist for managed mode (isolation hardening). In managed
+// mode the user's ~/.claude/settings.json is NOT used wholesale as the merge
+// base — external tools (cc-switch, the official CLI, manual edits) must not be
+// able to reroute or reconfigure plugin-managed sessions. Only explicitly
+// harmless advanced fields are inherited from disk:
+//   - top-level apiKeyHelper (enterprise key acquisition)
+//   - env: proxy/TLS and AWS credential vars (mirrors STARTUP_ENV_VARS)
+//   - env: the cloud-provider switches (CLOUD_PROVIDER_FLAGS) — the user owns
+//     Bedrock/Vertex/Foundry routing even in managed mode (see
+//     shouldHostManageProvider)
+// Everything else on disk (model, ANTHROPIC_* routing/credential vars, and any
+// other key) is ignored in managed mode. Local settings / CLI login modes are
+// unaffected — they keep reading the full settings.json.
+const MANAGED_INHERIT_TOP_LEVEL_KEYS = ['apiKeyHelper'];
+const MANAGED_INHERIT_ENV_VARS = [...STARTUP_ENV_VARS, ...CLOUD_PROVIDER_FLAGS];
+
+/**
+ * Get the active managed provider's settingsConfig from ~/.codeaide/config.json.
+ * Returns null unless a managed provider is active.
+ */
+function getManagedProviderSettingsConfig(runtimeState) {
+  if (runtimeState.access !== 'managed') {
+    return null;
+  }
+  const config = loadCodeaideConfig();
+  const provider = config?.claude?.providers?.[runtimeState.currentId];
+  const settingsConfig = provider?.settingsConfig;
+  return settingsConfig && typeof settingsConfig === 'object' ? settingsConfig : null;
+}
+
+/**
+ * Merge a managed provider's settingsConfig over the whitelisted slice of the
+ * user's settings.json. The disk file contributes only the MANAGED_INHERIT_*
+ * fields (apiKeyHelper, proxy/TLS + AWS env, cloud-provider switches); codeaide
+ * provider values win on conflict (per-key for env). Legacy sync markers
+ * (codeaideProviderId / ccSwitchProviderId) are not whitelisted and therefore
+ * never leak into the effective view.
+ */
+function mergeManagedProviderSettings(diskSettings, providerConfig) {
+  const merged = {};
+  for (const key of MANAGED_INHERIT_TOP_LEVEL_KEYS) {
+    if (diskSettings?.[key] !== undefined && diskSettings?.[key] !== null) {
+      merged[key] = diskSettings[key];
+    }
+  }
+  const inheritedEnv = {};
+  for (const varName of MANAGED_INHERIT_ENV_VARS) {
+    const value = diskSettings?.env?.[varName];
+    if (value !== undefined && value !== null) {
+      inheritedEnv[varName] = value;
+    }
+  }
+  for (const key of PROVIDER_MANAGED_SETTINGS_KEYS) {
+    if (key !== 'env' && providerConfig[key] !== undefined && providerConfig[key] !== null) {
+      merged[key] = providerConfig[key];
+    }
+  }
+  merged.env = { ...inheritedEnv, ...(providerConfig.env || {}) };
+  return merged;
 }
 
 export function getClaudeRuntimeState() {
-  const config = loadCodemossConfig();
+  const config = loadCodeaideConfig();
   const claude = config?.claude && typeof config.claude === 'object' ? config.claude : null;
   const providers = claude?.providers && typeof claude.providers === 'object' ? claude.providers : {};
   const providerIds = Object.keys(providers);
@@ -399,7 +482,7 @@ export function getClaudeRuntimeState() {
 }
 
 export function getCodexRuntimeState() {
-  const config = loadCodemossConfig();
+  const config = loadCodeaideConfig();
   const codex = config?.codex && typeof config.codex === 'object' ? config.codex : null;
   const providers = codex?.providers && typeof codex.providers === 'object' ? codex.providers : {};
   const hasExplicitCurrent = !!codex && Object.prototype.hasOwnProperty.call(codex, 'current') && codex.current !== null;
@@ -500,8 +583,16 @@ export function loadManagedSettings() {
 
 /**
  * Read Claude Code configuration only when an active Claude provider is authorized.
- * Managed providers read the plugin-synced settings.json copy; local/CLI modes
- * read the user's local Claude settings directly.
+ *
+ * For managed providers the effective settings are synthesized: the user's
+ * ~/.claude/settings.json contributes only a whitelist of harmless advanced
+ * fields (Bedrock/Vertex/Foundry switches, proxy/TLS + AWS env, apiKeyHelper —
+ * see MANAGED_INHERIT_*), while credentials and provider-managed fields come
+ * from the plugin-owned ~/.codeaide/config.json provider entry and win on
+ * conflict. Disk-only fields (model, ANTHROPIC_* routing/credential vars, any
+ * other key) are ignored in managed mode so external tools cannot affect
+ * plugin-managed sessions. Local/CLI login modes keep reading the user's
+ * official settings.json directly.
  */
 export function loadClaudeSettings() {
   const runtimeState = getClaudeRuntimeState();
@@ -509,7 +600,50 @@ export function loadClaudeSettings() {
     debugLog('[DEBUG] Skipping ~/.claude/settings.json read: Claude provider is inactive');
     return null;
   }
-  return readClaudeSettingsFromDisk();
+  const diskSettings = readClaudeSettingsFromDisk();
+  if (runtimeState.access !== 'managed') {
+    return diskSettings;
+  }
+  // The whitelist applies even when the provider carries no settingsConfig:
+  // managed mode must never fall back to arbitrary disk fields.
+  const providerConfig = getManagedProviderSettingsConfig(runtimeState) || {};
+  return mergeManagedProviderSettings(diskSettings, providerConfig);
+}
+
+/**
+ * Load enabled skills from ~/.codeaide/config.json as SDK plugin configs
+ * (SdkPluginConfig: { type: 'local', path }).
+ *
+ * Only applies to managed providers: there the plugin no longer writes the
+ * plugins array into ~/.claude/settings.json, so enabled skills are passed to
+ * the SDK via its `plugins` option instead. Local/CLI login modes return null
+ * (their settings.json plugins flow through settingSources untouched).
+ *
+ * @returns {Array<{type: string, path: string}> | null}
+ */
+export function loadCodeaideSkillPlugins() {
+  const runtimeState = getClaudeRuntimeState();
+  if (runtimeState.access !== 'managed') {
+    return null;
+  }
+  const config = loadCodeaideConfig();
+  const skills = config?.skills;
+  if (!skills || typeof skills !== 'object') {
+    return null;
+  }
+  const plugins = [];
+  for (const skill of Object.values(skills)) {
+    if (!skill || typeof skill !== 'object') {
+      continue;
+    }
+    const enabled = skill.enabled === undefined || skill.enabled === null || skill.enabled === true;
+    const skillPath = typeof skill.path === 'string' ? skill.path.trim() : '';
+    if (!enabled || !skillPath) {
+      continue;
+    }
+    plugins.push({ type: 'local', path: skillPath });
+  }
+  return plugins.length > 0 ? plugins : null;
 }
 
 /**
@@ -528,19 +662,28 @@ export function setupApiKey() {
   let apiKeySource = 'default';
   let baseUrlSource = 'default';
 
-  // Configuration priority: only read from settings.json, ignore system environment variables.
-  // This ensures a single source of truth and avoids interference from shell environment variables.
-  debugLog('[DEBUG] Loading configuration from settings.json only (ignoring shell environment variables)...');
+  // Configuration priority: for managed providers, credentials come from the
+  // plugin-owned ~/.codeaide/config.json provider entry (loadClaudeSettings
+  // merges it over the whitelisted slice of settings.json); the official
+  // settings.json contributes only whitelisted advanced fields there and
+  // remains the sole source in __local_settings_json__ / __cli_login__ modes.
+  // Shell environment variables are still ignored so a single source of truth
+  // remains.
+  const managedEnv = runtimeState.access === 'managed'
+    ? getManagedProviderSettingsConfig(runtimeState)?.env || {}
+    : null;
+  const credentialSource = (key) => (managedEnv && managedEnv[key] ? 'codeaide config.json' : 'settings.json');
+  debugLog('[DEBUG] Loading configuration (managed provider credentials from codeaide win over settings.json)...');
 
   if (settings?.env?.ANTHROPIC_BASE_URL) {
     baseUrl = settings.env.ANTHROPIC_BASE_URL;
-    baseUrlSource = 'settings.json';
+    baseUrlSource = credentialSource('ANTHROPIC_BASE_URL');
   }
 
   // HIGHEST PRIORITY: CLI login mode. When user explicitly opted in via plugin UI,
   // strictly use SDK native OAuth flow. No fallback to other auth methods.
   //
-  // Source of truth: ~/.codemoss/config.json (claude.current === "__cli_login__"),
+  // Source of truth: ~/.codeaide/config.json (claude.current === "__cli_login__"),
   // surfaced by getClaudeRuntimeState() above. We deliberately do NOT consult
   // ~/.claude/settings.json for this signal — that file is user-owned and must not
   // be mutated by provider switches. The legacy CCGUI_CLI_LOGIN_AUTHORIZED env flag
@@ -566,15 +709,15 @@ export function setupApiKey() {
   if (settings?.env?.ANTHROPIC_AUTH_TOKEN) {
     apiKey = settings.env.ANTHROPIC_AUTH_TOKEN;
     authType = 'auth_token';  // Bearer authentication
-    apiKeySource = 'settings.json (ANTHROPIC_AUTH_TOKEN)';
+    apiKeySource = `${credentialSource('ANTHROPIC_AUTH_TOKEN')} (ANTHROPIC_AUTH_TOKEN)`;
   } else if (settings?.env?.ANTHROPIC_API_KEY) {
     apiKey = settings.env.ANTHROPIC_API_KEY;
     authType = 'api_key';  // x-api-key authentication
-    apiKeySource = 'settings.json (ANTHROPIC_API_KEY)';
+    apiKeySource = `${credentialSource('ANTHROPIC_API_KEY')} (ANTHROPIC_API_KEY)`;
   } else if (isEnvFlagEnabled(settings?.env?.CLAUDE_CODE_USE_BEDROCK)) {
     apiKey = settings?.env?.CLAUDE_CODE_USE_BEDROCK;
     authType = 'aws_bedrock';  // AWS Bedrock authentication
-    apiKeySource = 'settings.json (AWS_BEDROCK)';
+    apiKeySource = `${credentialSource('CLAUDE_CODE_USE_BEDROCK')} (AWS_BEDROCK)`;
   }
 
   if (!apiKey) {

@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { registerStreamingCallbacks } from './streamingCallbacks';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
+import type { StreamingHint } from '../../../contexts/MessagesContext';
 import type { ClaudeMessage } from '../../../types';
 
 type Ref<T> = { current: T };
@@ -19,6 +20,7 @@ const ref = <T,>(value: T): Ref<T> => ({ current: value });
 
 function createHarness(initialMessages: ClaudeMessage[], turnIdCounter: number) {
   let messages = [...initialMessages];
+  let streamingHint: StreamingHint | null = null;
 
   const refs = {
     streamingContentRef: ref(''),
@@ -46,12 +48,24 @@ function createHarness(initialMessages: ClaudeMessage[], turnIdCounter: number) 
     setLoadingStartTime: () => {},
     setIsThinking: () => {},
     setExpandedThinking: () => {},
+    setStreamingHint: (
+      updater: StreamingHint | null | ((prev: StreamingHint | null) => StreamingHint | null),
+    ) => {
+      streamingHint = typeof updater === 'function' ? updater(streamingHint) : updater;
+    },
     getOrCreateStreamingAssistantIndex: () => -1,
     patchAssistantForStreaming: (message: ClaudeMessage) => message,
   } as unknown as UseWindowCallbacksOptions;
 
   registerStreamingCallbacks(options);
-  return { refs, getMessages: () => messages };
+  return {
+    refs,
+    getMessages: () => messages,
+    getStreamingHint: () => streamingHint,
+    setStreamingHintState: (hint: StreamingHint | null) => {
+      streamingHint = hint;
+    },
+  };
 }
 
 describe('onStreamStart bubble routing', () => {
@@ -255,5 +269,131 @@ describe('onStreamEnd finalizes dangling tool_use when the turn never streamed',
     // Nothing dangling → no id denied, and the list reference is unchanged.
     expect(window.__deniedToolIds?.has('tool-2') ?? false).toBe(false);
     expect(getMessages()).toBe(before);
+  });
+});
+
+/**
+ * Transient streaming status hint lifecycle: onToolPreparing / onCompactStatus
+ * set the hint; deltas, block reset, and stream end clear it.
+ */
+describe('streaming status hint (tool_preparing / compacting)', () => {
+  beforeEach(() => {
+    window.__sessionTransitioning = false;
+    window.__deniedToolIds = undefined;
+  });
+
+  afterEach(() => {
+    if (window.__stallWatchdogInterval != null) {
+      clearInterval(window.__stallWatchdogInterval);
+      window.__stallWatchdogInterval = null;
+    }
+    window.__deniedToolIds = undefined;
+  });
+
+  /** Start a stream so isStreamingRef is true, then return the harness handles. */
+  const startStreaming = () => {
+    const harness = createHarness([{ type: 'user', content: 'q' }], 0);
+    window.onStreamStart!();
+    return harness;
+  };
+
+  it('onToolPreparing sets a tool_preparing hint while streaming', () => {
+    const { getStreamingHint } = startStreaming();
+
+    window.onToolPreparing!('Write');
+
+    expect(getStreamingHint()).toEqual({ kind: 'tool_preparing', toolName: 'Write' });
+  });
+
+  it('onToolPreparing is ignored when the stream is not active', () => {
+    const { getStreamingHint } = createHarness([], 0);
+
+    window.onToolPreparing!('Write');
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onToolPreparing is ignored during session transitions', () => {
+    const { getStreamingHint } = startStreaming();
+    window.__sessionTransitioning = true;
+
+    window.onToolPreparing!('Write');
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onCompactStatus(true) sets a compacting hint; onCompactStatus(false) clears it', () => {
+    const { getStreamingHint } = startStreaming();
+
+    window.onCompactStatus!('true');
+    expect(getStreamingHint()).toEqual({ kind: 'compacting' });
+
+    window.onCompactStatus!('false');
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onCompactStatus(false) does NOT clear a tool_preparing hint', () => {
+    const { getStreamingHint } = startStreaming();
+    window.onToolPreparing!('Edit');
+
+    window.onCompactStatus!('false');
+
+    expect(getStreamingHint()).toEqual({ kind: 'tool_preparing', toolName: 'Edit' });
+  });
+
+  it('onContentDelta clears the hint once visible text resumes', () => {
+    const { getStreamingHint } = startStreaming();
+    window.onToolPreparing!('Write');
+    expect(getStreamingHint()).not.toBeNull();
+
+    window.onContentDelta!('Here is the file:');
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onThinkingDelta clears the hint', () => {
+    const { getStreamingHint } = startStreaming();
+    window.onCompactStatus!('true');
+
+    window.onThinkingDelta!('thinking again');
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onBlockReset clears the hint (new message_start within the stream)', () => {
+    const { getStreamingHint } = startStreaming();
+    window.onToolPreparing!('Bash');
+
+    window.onBlockReset!();
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onStreamEnd clears the hint (covers normal end, error finalize and stall recovery)', () => {
+    const { getStreamingHint } = startStreaming();
+    window.onToolPreparing!('Write');
+
+    window.onStreamEnd!();
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onStreamEnd in skip mode (turn never streamed) also clears a leftover hint', () => {
+    const { getStreamingHint, setStreamingHintState } = createHarness([], 0);
+    // Simulate a hint that leaked past a lost cleanup path.
+    setStreamingHintState({ kind: 'compacting' });
+
+    window.onStreamEnd!();
+
+    expect(getStreamingHint()).toBeNull();
+  });
+
+  it('onStreamStart clears a hint leaked from the previous turn', () => {
+    const { getStreamingHint, setStreamingHintState } = createHarness([{ type: 'user', content: 'q' }], 0);
+    setStreamingHintState({ kind: 'tool_preparing', toolName: 'Write' });
+
+    window.onStreamStart!();
+
+    expect(getStreamingHint()).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { AVAILABLE_PROVIDERS } from '../types';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
+import { getProviderCapabilities } from '../../../utils/providerCapabilities';
 import {
   fetchCodexSubscriptionQuota,
   subscribeCodexSubscriptionQuota,
@@ -55,6 +56,11 @@ function getProviderOptionStyle(enabled: boolean): React.CSSProperties {
     opacity: enabled ? 1 : 0.5,
     cursor: enabled ? 'pointer' : 'not-allowed',
   };
+}
+
+/** Whether the provider row hosts the subscription-quota submenu (Codex). */
+function hasSubscriptionQuotaSubmenu(providerId: string): boolean {
+  return getProviderCapabilities(providerId).supportsSubscriptionQuota;
 }
 
 interface ProviderSelectProps {
@@ -316,11 +322,11 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                 onClick={() => handleSelect(provider.id)}
                 style={{
                   ...getProviderOptionStyle(!!provider.enabled),
-                  ...(provider.id === 'codex' ? { position: 'relative' } : {}),
+                  ...(hasSubscriptionQuotaSubmenu(provider.id) ? { position: 'relative' } : {}),
                 }}
                 data-provider-id={provider.id}
                 onMouseEnter={(e) => {
-                  if (provider.id === 'codex') {
+                  if (hasSubscriptionQuotaSubmenu(provider.id)) {
                     // Float the quota panel just above the entire dropdown so it
                     // never overlaps the provider rows, regardless of panel width.
                     const rowRect = e.currentTarget.getBoundingClientRect();
@@ -335,7 +341,7 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                   }
                 }}
                 onMouseLeave={() => {
-                  if (provider.id === 'codex') {
+                  if (hasSubscriptionQuotaSubmenu(provider.id)) {
                     setActiveSubmenu('none');
                   }
                 }}
@@ -345,13 +351,13 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                 {provider.id === value && (
                   <span className="codicon codicon-check check-mark" />
                 )}
-                {provider.id === 'codex' && (
+                {hasSubscriptionQuotaSubmenu(provider.id) && (
                   <span
                     className="codicon codicon-chevron-right"
                     style={{ fontSize: '10px', marginLeft: provider.id === value ? '2px' : 'auto' }}
                   />
                 )}
-                {provider.id === 'codex' && activeSubmenu === 'codexQuota' && (
+                {hasSubscriptionQuotaSubmenu(provider.id) && activeSubmenu === 'codexQuota' && (
                   renderCodexQuotaSubmenu()
                 )}
               </div>

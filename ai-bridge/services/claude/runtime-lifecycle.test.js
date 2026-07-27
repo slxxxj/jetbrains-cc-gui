@@ -487,6 +487,20 @@ test('buildRuntimeSignature is stable for the same [1m] state', () => {
   assert.equal(a, b);
 });
 
+test('buildRuntimeSignature differs when the subagent model changes', () => {
+  // CLAUDE_CODE_SUBAGENT_MODEL only reaches the CLI via the spawn-time env, so
+  // changing it must force a runtime rebuild instead of reusing the warm one.
+  const options = { cwd: '/tmp/project', model: 'sonnet' };
+  const sigNone = buildRuntimeSignature(options, '', true, 'epoch-x', 'claude-sonnet-4-6', null);
+  const sigHaiku = buildRuntimeSignature(options, '', true, 'epoch-x', 'claude-sonnet-4-6', 'claude-haiku-4-5');
+  const sigHaikuAgain = buildRuntimeSignature(options, '', true, 'epoch-x', 'claude-sonnet-4-6', 'claude-haiku-4-5');
+
+  assert.notEqual(sigNone, sigHaiku);
+  assert.equal(sigHaiku, sigHaikuAgain);
+  assert.match(sigNone, /"subagentModel":""/);
+  assert.match(sigHaiku, /"subagentModel":"claude-haiku-4-5"/);
+});
+
 test('applyDynamicControls passes the resolved model id to setModel, not the short name', async () => {
   // The CLI subprocess resolves short names ("sonnet") against its own env,
   // which was frozen at spawn — a daemon-side env update never reaches it.
@@ -540,18 +554,18 @@ test('applyDynamicControls skips setModel when short name and resolved id are un
 
 test('acquireRuntime rebuilds the runtime when the [1m] context toggle changes', () => {
   // This scenario drives buildRequestContext(), which calls setupApiKey().
-  // setupApiKey resolves credentials ONLY from ~/.codemoss + ~/.claude under the
+  // setupApiKey resolves credentials ONLY from ~/.codeaide + ~/.claude under the
   // real home dir, ignoring env vars, and getRealHomeDir() caches that path on
   // first use — so a clean CI runner (no credentials) makes it throw "API Key
   // not configured". Run the scenario in a fresh child process whose HOME points
   // at a temp dir carrying a CLI-login config, mirroring api-config.test.js which
   // runs setupApiKey in a child for the same reason. The actual assertions live
   // in runtime-lifecycle.1m-toggle.child.mjs.
-  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-gui-1m-toggle-'));
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'codeaide-1m-toggle-'));
   try {
-    fs.mkdirSync(path.join(tempHome, '.codemoss'), { recursive: true });
+    fs.mkdirSync(path.join(tempHome, '.codeaide'), { recursive: true });
     fs.writeFileSync(
-      path.join(tempHome, '.codemoss', 'config.json'),
+      path.join(tempHome, '.codeaide', 'config.json'),
       JSON.stringify({ claude: { current: '__cli_login__', providers: {} } }),
       'utf8'
     );

@@ -510,3 +510,46 @@
     }
   }
 }
+
+/* Read-only status badge (auto-install status display) */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+
+  :global(.codicon) {
+    font-size: 12px;
+  }
+
+  &.statusInstalled {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+  }
+
+  &.statusNotInstalled {
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+  }
+
+  &.statusInstalling {
+    background: rgba(33, 150, 243, 0.15);
+    color: #2196f3;
+  }
+
+  &.statusError {
+    background: rgba(244, 67, 54, 0.12);
+    color: #f44336;
+  }
+}
+
+.errorText {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #f44336;
+  word-break: break-all;
+}

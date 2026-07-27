@@ -2,6 +2,12 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderConfig, CodexProviderConfig } from '../../../types/provider';
 import { STORAGE_KEYS } from '../../../types/provider';
+import {
+  getProviderCapabilities,
+  isKnownProvider,
+  selectByProvider,
+  type ProviderKind,
+} from '../../../utils/providerCapabilities';
 import ProviderManageSection from '../ProviderManageSection';
 import CodexProviderSection from '../CodexProviderSection';
 import CustomModelDialog from '../CustomModelDialog';
@@ -54,8 +60,8 @@ const ProviderTabSection = ({
 }: ProviderTabSectionProps) => {
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<'claude' | 'codex'>(
-    () => currentProvider === 'codex' ? 'codex' : 'claude'
+  const [activeTab, setActiveTab] = useState<ProviderKind>(
+    () => isKnownProvider(currentProvider) ? currentProvider : 'claude'
   );
 
   // Plugin-level custom model management
@@ -67,9 +73,9 @@ const ProviderTabSection = ({
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [modelDialogAddMode, setModelDialogAddMode] = useState(false);
   // Which plugin's models the dialog is editing
-  const [dialogTarget, setDialogTarget] = useState<'claude' | 'codex'>('claude');
+  const [dialogTarget, setDialogTarget] = useState<ProviderKind>('claude');
 
-  const openModelDialog = useCallback((target: 'claude' | 'codex', addMode = false) => {
+  const openModelDialog = useCallback((target: ProviderKind, addMode = false) => {
     setDialogTarget(target);
     setModelDialogAddMode(addMode);
     setModelDialogOpen(true);
@@ -80,7 +86,8 @@ const ProviderTabSection = ({
     setModelDialogAddMode(false);
   }, []);
 
-  const activeModels = dialogTarget === 'claude' ? claudeModels : codexModels;
+  const activeModels = selectByProvider(dialogTarget, { claude: claudeModels, codex: codexModels });
+  const supportsConfiguredPricing = getProviderCapabilities(dialogTarget).supportsConfiguredModelPricing;
 
   return (
     <div className={styles.providerTabSection}>
@@ -177,6 +184,7 @@ const ProviderTabSection = ({
           onDeleteCodexProvider={onDeleteCodexProvider}
           onSwitchCodexProvider={onSwitchCodexProvider}
           onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+          addToast={addToast}
           showHeader={false}
         />
       </div>
@@ -186,9 +194,9 @@ const ProviderTabSection = ({
         isOpen={modelDialogOpen}
         models={activeModels.models}
         onModelsChange={activeModels.updateModels}
-        configuredModels={dialogTarget === 'claude' ? claudeConfiguredModelPricing.configuredModels : []}
+        configuredModels={supportsConfiguredPricing ? claudeConfiguredModelPricing.configuredModels : []}
         onConfiguredModelPricingChange={
-          dialogTarget === 'claude'
+          supportsConfiguredPricing
             ? claudeConfiguredModelPricing.updateConfiguredModelPricing
             : undefined
         }

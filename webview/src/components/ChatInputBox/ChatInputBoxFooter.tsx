@@ -26,6 +26,7 @@ export function ChatInputBoxFooter({
   currentProvider,
   reasoningEffort,
   codexFastMode,
+  subagentModel,
   onSubmit,
   onStop,
   onModeSelect,
@@ -33,6 +34,7 @@ export function ChatInputBoxFooter({
   onProviderSelect,
   onReasoningChange,
   onCodexFastModeChange,
+  onSubagentModelSelect,
   onEnhancePrompt,
   alwaysThinkingEnabled,
   onToggleThinking,
@@ -63,6 +65,7 @@ export function ChatInputBoxFooter({
   currentProvider: string;
   reasoningEffort: ReasoningEffort;
   codexFastMode?: CodexFastMode;
+  subagentModel?: string;
   onSubmit: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
@@ -70,6 +73,7 @@ export function ChatInputBoxFooter({
   onProviderSelect?: (providerId: string) => void;
   onReasoningChange?: (effort: ReasoningEffort) => void;
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  onSubagentModelSelect?: (modelId: string) => void;
   onEnhancePrompt: () => void;
   alwaysThinkingEnabled?: boolean;
   onToggleThinking?: (enabled: boolean) => void;
@@ -112,6 +116,7 @@ export function ChatInputBoxFooter({
         currentProvider={currentProvider}
         reasoningEffort={reasoningEffort}
         codexFastMode={codexFastMode}
+        subagentModel={subagentModel}
         onSubmit={onSubmit}
         onStop={onStop}
         onModeSelect={onModeSelect}
@@ -119,6 +124,7 @@ export function ChatInputBoxFooter({
         onProviderSelect={onProviderSelect}
         onReasoningChange={onReasoningChange}
         onCodexFastModeChange={onCodexFastModeChange}
+        onSubagentModelSelect={onSubagentModelSelect}
         onEnhancePrompt={onEnhancePrompt}
         alwaysThinkingEnabled={alwaysThinkingEnabled}
         onToggleThinking={onToggleThinking}

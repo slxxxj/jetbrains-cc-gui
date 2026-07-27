@@ -1,8 +1,9 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AVAILABLE_MODELS, normalizeClaudeModelId, modelSupports1MContext, strip1MContextSuffix } from '../types';
+import { AVAILABLE_MODELS, modelSupports1MContext, strip1MContextSuffix } from '../types';
 import type { ModelInfo } from '../types';
 import { readClaudeModelMapping } from '../../../utils/claudeModelMapping';
+import { getProviderCapabilities } from '../../../utils/providerCapabilities';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import Switch from 'antd/es/switch';
@@ -31,6 +32,8 @@ interface ModelSelectProps {
   onAddModel?: () => void;
   longContextEnabled?: boolean;
   onLongContextChange?: (enabled: boolean) => void;
+  /** Re-fetch the dynamic model list from the current provider. */
+  onRefreshModels?: () => void;
 }
 
 const DEFAULT_MODEL_MAP: Record<string, ModelInfo> = AVAILABLE_MODELS.reduce(
@@ -132,7 +135,7 @@ const resolveModelIdForIcon = (
  * ModelSelect - Model selector component
  * Supports switching between Sonnet 4.5, Opus 4.5, and other models, including Codex models
  */
-export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude', onAddModel, longContextEnabled = true, onLongContextChange }: ModelSelectProps) => {
+export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, currentProvider = 'claude', onAddModel, longContextEnabled = true, onLongContextChange, onRefreshModels }: ModelSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,16 +149,14 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   });
 
   // Strip [1m] suffix for finding the model in the list
+  const capabilities = getProviderCapabilities(currentProvider);
   const strippedValue = strip1MContextSuffix(value);
-  const normalizedValue = currentProvider === 'claude' ? normalizeClaudeModelId(strippedValue) : strippedValue;
+  const normalizedValue = capabilities.normalizeModelId(strippedValue);
   const currentModel = models.find(m => m.id === normalizedValue) || models.find(m => m.id === strippedValue) || models[0];
   const modelMapping = readClaudeModelMapping();
 
   const isSelectedModel = (modelId: string): boolean => {
-    if (currentProvider !== 'claude') {
-      return modelId === strippedValue;
-    }
-    return normalizeClaudeModelId(modelId) === normalizedValue;
+    return capabilities.normalizeModelId(modelId) === normalizedValue;
   };
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
@@ -183,8 +184,8 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
   };
 
   const append1MContextSuffix = (label: string, modelId: string, show1MContext: boolean): string => {
-    // Only show 1M context suffix for Claude provider
-    if (currentProvider === 'claude' && show1MContext && modelSupports1MContext(modelId) && longContextEnabled) {
+    // Only show 1M context suffix for providers with the long-context toggle
+    if (capabilities.supportsLongContext && show1MContext && modelSupports1MContext(modelId) && longContextEnabled) {
       return `${label} (${t('models.longContext.shortLabel')})`;
     }
     return label;
@@ -341,7 +342,7 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
               })}
             </div>
           )}
-          {currentProvider === 'claude' && onLongContextChange && (
+          {capabilities.supportsLongContext && onLongContextChange && (
             <>
               <div className="selector-divider" />
               <div
@@ -356,6 +357,20 @@ export const ModelSelect = ({ value, onChange, models = AVAILABLE_MODELS, curren
                   disabled={!modelSupports1MContext(value)}
                   onChange={onLongContextChange}
                 />
+              </div>
+            </>
+          )}
+          {onRefreshModels && (
+            <>
+              <div className="selector-divider" />
+              <div
+                className="selector-option selector-option-refresh"
+                data-testid="model-refresh-option"
+                title={t('models.refreshListHint', { defaultValue: 'Fetch the latest model list from the current provider' })}
+                onClick={() => { onRefreshModels(); setIsOpen(false); setSearchQuery(''); }}
+              >
+                <span className="codicon codicon-refresh selector-add-icon" />
+                <span>{t('models.refreshList', { defaultValue: 'Refresh model list' })}</span>
               </div>
             </>
           )}

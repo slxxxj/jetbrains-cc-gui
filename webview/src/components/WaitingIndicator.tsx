@@ -5,9 +5,15 @@ interface WaitingIndicatorProps {
   size?: number;
   /** Loading start timestamp (ms), used to maintain continuous timing across view switches */
   startTime?: number;
+  /**
+   * Transient streaming status hint (already translated, e.g. "Preparing tool
+   * call: Write" / "Compacting context"). Replaces the default "generating
+   * response" label while set; the spinner and elapsed time stay.
+   */
+  hint?: string;
 }
 
-export const WaitingIndicator = ({ size = 18, startTime }: WaitingIndicatorProps) => {
+export const WaitingIndicator = ({ size = 18, startTime, hint }: WaitingIndicatorProps) => {
   const { t } = useTranslation();
   const [dotCount, setDotCount] = useState(1);
   const [elapsedSeconds, setElapsedSeconds] = useState(() => {
@@ -60,7 +66,7 @@ export const WaitingIndicator = ({ size = 18, startTime }: WaitingIndicatorProps
     <div className="waiting-indicator">
       <span className="waiting-spinner" style={spinnerStyle} />
       <span className="waiting-text">
-	        {t('chat.generatingResponse')}<span className="waiting-dots">{dots}</span>
+	        {hint ?? t('chat.generatingResponse')}<span className="waiting-dots">{dots}</span>
 	        <span className="waiting-seconds">（{t('chat.elapsedTime', { time: formatElapsedTime(elapsedSeconds) })}）</span>
       </span>
     </div>

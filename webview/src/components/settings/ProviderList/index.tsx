@@ -555,6 +555,9 @@ export default function ProviderList({
               <div className={styles.website} title={t('settings.provider.cliLoginProviderDescription')}>
                 {t('settings.provider.cliLoginProviderDescription')}
               </div>
+              <div className={styles.website} style={CLI_ACCOUNT_INFO_STYLE}>
+                {t('settings.provider.cliLoginIsolationNote')}
+              </div>
               {cliLoginAccountEmail && localProviders.some(p => p.id === SPECIAL_PROVIDER_IDS.CLI_LOGIN && p.isActive) && (
                 <div className={styles.website} style={CLI_ACCOUNT_INFO_STYLE}>
                   {t('settings.provider.cliLoginAccountInfo', { email: cliLoginAccountEmail })}

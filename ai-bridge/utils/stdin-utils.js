@@ -3,6 +3,8 @@
  * Supports both Claude and Codex SDKs.
  */
 
+import { emit } from '../protocol/emitter.js';
+
 /**
  * Read JSON data from stdin.
  * @param {string} provider - 'claude' or 'codex'
@@ -50,7 +52,7 @@ export async function readStdinData(provider = 'claude') {
           const parsed = JSON.parse(data.trim());
           resolve(parsed);
         } catch (e) {
-          console.error('[STDIN_PARSE_ERROR]', e.message);
+          emit('node_error', { source: 'STDIN_PARSE_ERROR', message: e.message });
           resolve(null);
         }
       } else {
@@ -61,7 +63,7 @@ export async function readStdinData(provider = 'claude') {
     const onError = (err) => {
       clearTimeout(timeout);
       cleanup();
-      console.error('[STDIN_ERROR]', err.message);
+      emit('node_error', { source: 'STDIN_ERROR', message: err.message });
       resolve(null);
     };
 

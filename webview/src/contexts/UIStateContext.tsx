@@ -27,6 +27,8 @@ export interface UIStateContextValue {
   showChangelogDialog: boolean;
   closeChangelogDialog: () => void;
   openChangelogDialog: () => void;
+  /** True when the running version's changelog has not been viewed yet (drives the red-dot badge). */
+  hasUnreadChangelog: boolean;
 
   // Active editor context (file + selection)
   contextInfo: ContextInfo | null;
@@ -54,7 +56,10 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [addModelDialogOpen, setAddModelDialogOpen] = useState<boolean>(false);
-  const [showChangelogDialog, setShowChangelogDialog] = useState<boolean>(() => {
+  // Never auto-open the changelog on version upgrade; surface an unread
+  // red-dot badge on the version tag instead (user opens the dialog manually).
+  const [showChangelogDialog, setShowChangelogDialog] = useState<boolean>(false);
+  const [hasUnreadChangelog, setHasUnreadChangelog] = useState<boolean>(() => {
     const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
     return lastSeen !== APP_VERSION;
   });
@@ -77,6 +82,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
   const closeChangelogDialog = useCallback(() => {
     localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION);
     setShowChangelogDialog(false);
+    setHasUnreadChangelog(false);
     // The fixed-position fullscreen overlay can leave ghosting after unmount on macOS JCEF.
     forceWebviewRepaint('changelog-dialog-close');
   }, []);
@@ -90,6 +96,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
       toasts, addToast, dismissToast, clearToasts,
       addModelDialogOpen, setAddModelDialogOpen,
       showChangelogDialog, closeChangelogDialog, openChangelogDialog,
+      hasUnreadChangelog,
       contextInfo, setContextInfo,
       draftInput, setDraftInput,
       searchOpen, setSearchOpen,
@@ -99,6 +106,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
       toasts, addToast, dismissToast, clearToasts,
       addModelDialogOpen,
       showChangelogDialog, closeChangelogDialog, openChangelogDialog,
+      hasUnreadChangelog,
       contextInfo, draftInput,
       searchOpen,
     ],

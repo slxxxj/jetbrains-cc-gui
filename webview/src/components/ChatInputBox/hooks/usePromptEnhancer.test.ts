@@ -24,7 +24,7 @@ describe('usePromptEnhancer', () => {
     });
 
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'enhance_prompt:{"prompt":"Please refactor this module"}'
+      JSON.stringify({ type: 'enhance_prompt', payload: { prompt: 'Please refactor this module' } })
     );
   });
 });

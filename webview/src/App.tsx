@@ -38,6 +38,7 @@ import { useUIState } from './contexts/UIStateContext';
 import { useDialogs } from './contexts/DialogContext';
 import { AppDialogs } from './components/AppDialogs';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from './utils/permissionDialogTimeout';
+import { supportsPlanMode } from './utils/providerCapabilities';
 
 const App = () => {
   const { t } = useTranslation();
@@ -69,6 +70,7 @@ const App = () => {
     loading, setLoading, setLoadingStartTime,
     setIsThinking,
     streamingActive, setStreamingActive,
+    setStreamingHint,
   } = useMessages();
 
   // ── Session state (extracted to SessionContext, stage 2 of TASK-P1-01) ──
@@ -148,6 +150,7 @@ const App = () => {
     activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
     reasoningEffort, codexFastMode, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
     longContextEnabled,
+    selectedSubagentModel,
     usagePercentage, usageUsedTokens, usageMaxTokens,
     setPermissionMode,
     setClaudePermissionMode, setCodexPermissionMode,
@@ -162,6 +165,7 @@ const App = () => {
     handleReasoningChange, handleCodexFastModeChange, handleAgentSelect, handleToggleThinking,
     handleStreamingEnabledChange, handleSendShortcutChange,
     handleAutoOpenFileEnabledChange, handleLongContextChange,
+    handleSubagentModelSelect,
   } = useModelProviderState({ addToast, t });
 
   // ── Global drag event interception ──
@@ -272,7 +276,7 @@ const App = () => {
   useWindowCallbacks({
     t, addToast, clearToasts,
     setMessages, setStatus, setLoading, setLoadingStartTime,
-    setIsThinking, setStreamingActive, setHistoryData,
+    setIsThinking, setStreamingActive, setStreamingHint, setHistoryData,
     setCurrentSessionId, setUsagePercentage, setUsageUsedTokens, setUsageMaxTokens,
     setPermissionMode, setClaudePermissionMode, setCodexPermissionMode,
     setSelectedClaudeModel, setSelectedCodexModel,
@@ -324,6 +328,7 @@ const App = () => {
   } = useMessageSender({
     t, addToast,
     currentProvider, selectedModel, permissionMode, reasoningEffort, selectedAgent, codexFastMode,
+    selectedSubagentModel,
     sdkStatusLoaded, currentSdkInstalled,
     sentAttachmentsRef, chatInputRef, messagesContainerRef,
     isUserAtBottomRef, userPausedRef, isStreamingRef,
@@ -361,8 +366,8 @@ const App = () => {
         setCurrentView('history');
         return;
       }
-      // /plan - switch to plan mode (Claude only; Codex sends as normal text)
-      if (PLAN_COMMANDS.has(command) && currentProvider === 'claude') {
+      // /plan - switch to plan mode (only for providers with plan mode; others send as normal text)
+      if (PLAN_COMMANDS.has(command) && supportsPlanMode(currentProvider)) {
         handleModeSelect('plan');
         addToast(t('chat.planModeEnabled', { defaultValue: 'Plan mode enabled' }), 'info');
         return;
@@ -501,6 +506,7 @@ const App = () => {
           claudeSettingsAlwaysThinkingEnabled={claudeSettingsAlwaysThinkingEnabled}
           reasoningEffort={reasoningEffort}
           codexFastMode={codexFastMode}
+          selectedSubagentModel={selectedSubagentModel}
           streamingEnabledSetting={streamingEnabledSetting}
           sendShortcut={sendShortcut}
           autoOpenFileEnabled={autoOpenFileEnabled}
@@ -513,6 +519,7 @@ const App = () => {
           onAgentSelect={handleAgentSelect}
           onReasoningChange={handleReasoningChange}
           onCodexFastModeChange={handleCodexFastModeChange}
+          onSubagentModelSelect={handleSubagentModelSelect}
           onToggleThinking={handleToggleThinking}
           onStreamingEnabledChange={handleStreamingEnabledChange}
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}

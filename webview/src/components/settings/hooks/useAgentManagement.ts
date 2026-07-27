@@ -2,13 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentConfig } from '../../../types/agent';
 import type { ImportPreviewResult, ConflictStrategy } from '../../../types/import';
-
-const sendToJava = (message: string) => {
-  if (window.sendToJava) {
-    window.sendToJava(message);
-  }
-  // Silently ignore when sendToJava is unavailable to avoid log pollution in production
-};
+import { sendBridgeEvent, sendToJava } from '../../../utils/bridge';
 
 export interface AgentDialogState {
   isOpen: boolean;
@@ -74,7 +68,7 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
     const TIMEOUT = 3000; // 3-second timeout
 
     setAgentsLoading(true);
-    sendToJava('get_agents:');
+    sendBridgeEvent('get_agents');
 
     // Set up timeout timer
     const timeoutId = setTimeout(() => {
@@ -144,7 +138,7 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
           name: data.name,
           prompt: data.prompt,
         };
-        sendToJava(`add_agent:${JSON.stringify(newAgent)}`);
+        sendToJava('add_agent', newAgent);
       } else if (agentDialog.agent) {
         // Update existing agent
         const updateData = {
@@ -154,7 +148,7 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
             prompt: data.prompt,
           },
         };
-        sendToJava(`update_agent:${JSON.stringify(updateData)}`);
+        sendToJava('update_agent', updateData);
       }
 
       setAgentDialog({ isOpen: false, agent: null });
@@ -170,7 +164,7 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
     if (!agent) return;
 
     const data = { id: agent.id };
-    sendToJava(`delete_agent:${JSON.stringify(data)}`);
+    sendToJava('delete_agent', data);
     setDeleteAgentConfirm({ isOpen: false, agent: null });
     // Reload list after deletion (with timeout protection)
     loadAgents();
@@ -211,13 +205,13 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
     const exportData = {
       agentIds: selectedIds,
     };
-    sendToJava(`export_agents:${JSON.stringify(exportData)}`);
+    sendToJava('export_agents', exportData);
     setExportDialog({ isOpen: false });
   }, []);
 
   // Import agents from file
   const handleImportAgentsFile = useCallback(() => {
-    sendToJava('import_agents_file:');
+    sendBridgeEvent('import_agents_file');
   }, []);
 
   // Handle import preview result (used by window callback)
@@ -253,7 +247,7 @@ export function useAgentManagement(options: UseAgentManagementOptions = {}) {
         strategy,
       };
 
-      sendToJava(`save_imported_agents:${JSON.stringify(importData)}`);
+      sendToJava('save_imported_agents', importData);
       setImportPreviewDialog({ isOpen: false, previewData: null });
     },
     [importPreviewDialog.previewData]

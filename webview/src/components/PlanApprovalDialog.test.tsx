@@ -37,7 +37,7 @@ describe('PlanApprovalDialog', () => {
       plan: [
         'Review src/components/App.tsx',
         '',
-        'Check com.github.claudecodegui.handler.file.OpenFileHandler',
+        'Check com.codeaide.handler.file.OpenFileHandler',
         '',
         'Reference https://example.com/docs',
       ].join('\n'),
@@ -55,7 +55,7 @@ describe('PlanApprovalDialog', () => {
     expect(screen.getByRole('link', { name: 'src/components/App.tsx' })).toBeTruthy();
     expect(
       screen.getByRole('link', {
-        name: 'com.github.claudecodegui.handler.file.OpenFileHandler',
+        name: 'com.codeaide.handler.file.OpenFileHandler',
       }),
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'https://example.com/docs' })).toBeTruthy();

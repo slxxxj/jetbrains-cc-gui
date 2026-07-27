@@ -92,6 +92,8 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[添付ファイルがアップロードされました]",
     "streamingConnected": "{{provider}}に接続しました、質問を理解しています",
+    "preparingToolCall": "ツール呼び出しを準備中：{{toolName}}",
+    "compactingContext": "コンテキストを圧縮中",
     "showEarlierMessages": "以前の{{count}}件のメッセージを表示",
     "totalDuration": "今回の応答時間",
     "tokenUsage": "入力 {{input}} / 出力 {{output}}",
@@ -316,28 +318,17 @@
     "dependenciesDesc": "AI SDK依存関係のインストールと更新を管理",
     "dependency": {
       "title": "SDK依存関係管理",
-      "description": "AI SDK依存関係を管理します。初回使用前に必要なSDKをインストールしてください。",
-      "installPolicyTip": "インストールに問題がある場合、エラーをターミナルCLI AIにコピーして解決できます",
+      "description": "AI SDK 依存関係のインストール状態を表示します。依存関係はプラグインが自動でインストール・更新します。",
+      "installPolicyTip": "SDK 依存関係はプラグインが自動でインストール・更新し、失敗時は自動で再試行します。詳細は IDE ログを確認してください。",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI機能に必要です。Claude Code SDKと関連依存関係が含まれます。",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Codex AI機能に必要です。OpenAI Codex SDKが含まれます。",
       "loading": "依存関係の状態を読み込み中...",
-      "install": "インストール",
-      "installing": "インストール中...",
-      "uninstall": "アンインストール",
-      "uninstalling": "アンインストール中...",
-      "update": "更新",
-      "updateAvailable": "更新あり",
-      "installLogs": "インストールログ",
-      "waitingForLogs": "ログ出力を待機中...",
-      "nodeNotConfigured": "Node.jsが設定されていません。まず基本設定でNode.jsパスを設定してください。",
-      "installSuccess": "{{name}}のインストールが完了しました",
-      "installFailed": "インストール失敗: {{error}}",
-      "uninstallSuccess": "{{name}}がアンインストールされました",
-      "uninstallFailed": "アンインストール失敗: {{error}}",
-      "updating": "更新中...",
-      "updateSuccess": "{{name}}が正常に更新されました"
+      "statusInstalled": "インストール済み",
+      "statusNotInstalled": "未インストール",
+      "statusInstalling": "インストール中…",
+      "statusError": "失敗、自動再試行中"
     },
     "usage": "使用統計",
     "usageDesc": "トークン消費量、コスト統計、使用傾向分析を表示",
@@ -365,12 +356,20 @@
       "prompt": {
         "label": "Additional Prompt",
         "placeholder": "Add your extra requirements here, e.g., generate commit in English, include issue number, etc...",
-        "hint": "The plugin has built-in CCG Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
+        "hint": "The plugin has built-in CodeAide Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
       },
       "projectPrompt": {
         "label": "プロジェクト固有の追加プロンプト",
         "placeholder": "現在のプロジェクト固有の要件をここに追加してください。例：scopeにはモジュール名を使用、commit bodyに影響範囲を含めるなど...",
         "hint": "このプロンプトは現在のプロジェクトにのみ適用され、グローバル追加プロンプトと同時に結合されます。両者の内容が矛盾する場合、プロジェクトプロンプトが優先されます。異なるプロジェクトを独立して設定できます。"
+      },
+      "agentConfig": {
+        "label": "並列エージェント（大量ファイル）",
+        "batchSize": "エージェントあたりのファイル数",
+        "maxParallel": "最大並列エージェント数",
+        "fastMode": "高速モード（思考をスキップ）",
+        "includeFileDetail": "ファイルごとの変更明細を追加",
+        "hint": "変更ファイル数がバッチサイズを超えると、バッチごとにエージェントが並列実行され、要約が1つのコミットメッセージに統合されるため、タイムアウトを防げます。"
       },
       "codeReview": {
         "comingSoon": "Coming Soon",
@@ -510,6 +509,7 @@
       "cliLoginDisableTitle": "CLIログイン許可を取り消す",
       "cliLoginDisableMessage": "CLIログイン状態の使用を停止し、別のプロバイダーを明示的に有効にするまでClaudeはアクティブなプロバイダーがない状態になります。",
       "cliLoginAccountInfo": "ログイン中: {{email}}",
+      "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
       "subscriptionTutorial": {
         "entry": "サブスクリプションアカウントガイド",
         "dialogTitle": "サブスクリプションアカウントの使い方",
@@ -535,7 +535,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "それでも解決しない場合は、GitHub に問題を報告してください：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Codex サブスクリプションアカウントのセットアップ",
@@ -549,7 +549,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "それでも解決しない場合は、GitHub に問題を報告してください：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -596,7 +596,7 @@
         "customModels": "カスタムモデル",
         "customModelsHint": "このプロバイダーがサポートする追加モデルを追加します。カスタムモデルはモデル選択リストの最上部に表示されます",
         "jsonConfig": "JSON設定",
-        "jsonConfigDescription": "完全なsettings.jsonコンテンツをここで設定できます。すべてのフィールドをサポート(例: model、alwaysThinkingEnabled、ccSwitchProviderId、codemossProviderIdなど)",
+        "jsonConfigDescription": "完全なsettings.jsonコンテンツをここで設定できます。すべてのフィールドをサポート(例: model、alwaysThinkingEnabled、ccSwitchProviderId、codeaideProviderIdなど)",
         "jsonError": "無効なJSON形式",
         "required": "*",
         "showApiKey": "表示",
@@ -662,6 +662,7 @@
         "cliLoginAuthorizeDetail": "ターミナルで 'codex login' でログイン済みか確認してください。現在の config.toml はバックアップされます。",
         "cliLoginDisableTitle": "Codex CLI ログインを無効",
         "cliLoginDisableMessage": "以前の config.toml を復元し、API Key 認証に切り替えます。",
+        "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
         "modelIdRequired": "Model ID is required",
         "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
         "modelIdDuplicate": "Model ID already exists",
@@ -1401,6 +1402,13 @@
     "searchPlaceholder": "モデルを検索",
     "noModelsFound": "モデルが見つかりません",
     "hiddenModelCount": "+ {{count}} 件のモデルがあります。入力して検索してください。",
+    "refreshList": "Refresh model list",
+    "refreshListHint": "Fetch the latest model list from the current provider",
+    "subagent": {
+      "title": "Select subagent model",
+      "default": "Default (follow main model)",
+      "defaultDescription": "Subagents use the main model"
+    },
     "longContext": {
       "label": "1M",
       "shortLabel": "1Mコンテキスト",
@@ -1662,18 +1670,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "SDK のインストールが不完全 — ネイティブバイナリが見つかりません",
-      "intro": "これは Taobao npm ミラーの既知の問題です（プラグインのバグではありません）。ミラーが platform 固有のファイルを完全に同期していません。以下のいずれかの方法で手動で対応できます：",
+      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug) — the mirror hasn't fully synchronized the platform-specific files. The plugin will retry the installation automatically; you can also speed up recovery with the option below:",
       "reason": "Taobao ミラーが同期を完了すると、この問題は自動的に解消されます。心配する必要はありません。",
       "solutions": {
         "switchRegistry": {
-          "title": "方法 1：一時的に公式レジストリに切り替えて再インストール",
+          "title": "Option 1: Switch to the official registry and let the plugin retry",
           "step0": "1. ターミナルで実行（npm 公式レジストリへ切り替え）：",
-          "step1": "2. プラグインの「依存関係管理」設定を開き、再インストールをクリック：",
-          "step2": "3. 再インストール完了後、Taobao ミラーに戻す："
-        },
-        "downgrade": {
-          "title": "方法 2：バージョンをロールバック",
-          "step0": "「依存関係管理」で SDK バージョンを v0.2.112 以前に切り替えてください。切り替え後は IDEA の再起動が必要です。"
+          "step1": "2. The plugin retries the installation automatically; afterwards you can switch back to the Taobao mirror (optional). Check the logs if it still fails:"
         }
       }
     },
@@ -1687,9 +1690,8 @@
           "step0": "ターミナルで以下のコマンドを実行してバージョンを確認してください。Node 22 または現在の最新 LTS を推奨します — Node 24 では多数のエラー報告があるため、Node 20 または 22 をご利用ください："
         },
         "reinstallLatestSdk": {
-          "title": "方法 2：npm 公式レジストリから最新の SDK を再インストール",
-          "step0": "1. npm 公式レジストリに切り替える（Taobao ミラーは最新版に同期されていない可能性があります、使用しないでください）：",
-          "step1": "2. 「依存関係管理」を開いて最新の SDK を再インストール："
+          "title": "Option 2: Switch to the official npm registry and let the plugin reinstall the latest SDK",
+          "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
     }

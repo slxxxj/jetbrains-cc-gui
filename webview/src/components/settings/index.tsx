@@ -21,6 +21,8 @@ import OtherSettingsSection from './OtherSettingsSection';
 import { SkillsSettingsSection } from '../skills';
 import SettingsDialogs from './SettingsDialogs';
 import { setNewSessionConfirmEnabled as persistNewSessionConfirmEnabled } from '../../utils/skipNewSessionConfirm';
+import { sendToJava } from '../../utils/bridge';
+import { getProviderCapabilities } from '../../utils/providerCapabilities';
 
 // Import custom hooks
 import {
@@ -392,7 +394,7 @@ const SettingsView = ({
         id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         ...updates
       };
-      window.sendToJava?.(`add_provider:${JSON.stringify(newProvider)}`);
+      sendToJava('add_provider', newProvider);
       addToast(t('toast.providerAdded'), 'success');
     } else {
       // Update existing provider
@@ -408,7 +410,7 @@ const SettingsView = ({
         id: providerId,
         updates,
       };
-      window.sendToJava?.(`update_provider:${JSON.stringify(updateData)}`);
+      sendToJava('update_provider', updateData);
       addToast(t('toast.providerUpdated'), 'success');
 
       // If this is the currently active provider, immediately re-apply the configuration after update
@@ -419,7 +421,7 @@ const SettingsView = ({
         });
         // Use setTimeout for a slight delay to ensure update_provider finishes first
         setTimeout(() => {
-          window.sendToJava?.(`switch_provider:${JSON.stringify({ id: providerId })}`);
+          sendToJava('switch_provider', { id: providerId });
         }, 100);
       }
     }
@@ -562,7 +564,7 @@ const SettingsView = ({
               />
           </div>
 
-          {/* SDK dependency management */}
+          {/* SDK dependency status (read-only; install/update is automatic) */}
           <div style={currentTab === 'dependencies' ? BLOCK_STYLE : NONE_STYLE}>
             <DependencySection addToast={addToast} isActive={currentTab === 'dependencies'} />
           </div>
@@ -579,7 +581,7 @@ const SettingsView = ({
 
           {/* Permissions configuration */}
           <div style={currentTab === 'permissions' ? BLOCK_STYLE : NONE_STYLE}>
-            {currentProvider === 'codex' ? (
+            {getProviderCapabilities(currentProvider).supportsSandboxSettings ? (
               <PermissionsSection
                 codexSandboxMode={codexSandboxMode}
                 onCodexSandboxModeChange={handleCodexSandboxModeChange}

@@ -165,8 +165,15 @@ const callBridge = (payload: string) => {
   return false;
 };
 
-export const sendBridgeEvent = (event: string, content = '') => {
-  return callBridge(`${event}:${content}`);
+/**
+ * Send a bridge event to the Java backend as a JSON envelope.
+ * The payload keeps its original type (object / string / undefined); objects
+ * are serialized once by the envelope itself, so callers must NOT pre-stringify.
+ * On the Java side an object payload is delivered to handlers as JSON text,
+ * a primitive payload as its raw text, and a missing payload as "".
+ */
+export const sendBridgeEvent = (event: string, payload?: unknown) => {
+  return callBridge(JSON.stringify({ type: event, payload }));
 };
 
 export const resolveFilePath = (filePath?: string) => {
@@ -225,9 +232,8 @@ export const openBrowser = (url?: string) => {
   sendBridgeEvent('open_browser', url);
 };
 
-export const sendToJava = (message: string, payload: any = {}) => {
-  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
-  sendBridgeEvent(message, payloadStr);
+export const sendToJava = (message: string, payload?: any) => {
+  sendBridgeEvent(message, payload);
 };
 
 export const refreshFile = (filePath: string) => {

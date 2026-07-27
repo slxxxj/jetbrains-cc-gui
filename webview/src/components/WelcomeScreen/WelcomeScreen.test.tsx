@@ -54,4 +54,27 @@ describe('WelcomeScreen', () => {
 
     expect(screen.getByText('给 Claude Code 发送消息')).toBeTruthy();
   });
+
+  it('shows the unread-update red dot only when showVersionBadge is set', () => {
+    const { container, rerender } = render(
+      <WelcomeScreen
+        currentProvider="claude"
+        t={t}
+        onProviderChange={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector('.version-badge-dot')).toBeNull();
+
+    rerender(
+      <WelcomeScreen
+        currentProvider="claude"
+        t={t}
+        onProviderChange={vi.fn()}
+        showVersionBadge
+      />,
+    );
+
+    expect(container.querySelector('.version-badge-dot')).toBeTruthy();
+  });
 });

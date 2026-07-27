@@ -1,30 +1,28 @@
 <div align="center">
 
-# CC GUI（Claude or Codex）
+# CodeAide（Claude or Codex）
 
-> 原名：Claude Code GUI
+> 基于开源项目 [CC GUI](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) 二次开发 —— 已全面更名，MIT 协议。
 
-<img width="120" alt="Image" src="./docs/images/idea-claude-code-gui-logo.png" />
+<img width="120" alt="CodeAide Logo" src="./docs/images/codeaide-logo.png" />
 
 **简体中文** · [English](./README.md)
 
-<a href="https://trendshift.io/repositories/24968" target="_blank"><img src="https://trendshift.io/api/badge/repositories/24968" alt="zhukunpenglinyutong%2Fjetbrains-cc-gui | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-![][github-contributors-shield] ![][github-forks-shield] ![][github-stars-shield] ![][github-issues-shield] ![][github-mit]
-
 </div>
 
-> 为规避Claude商标风险，本项目名称修改为CC GUI（原名：Claude Code GUI）；并更换LOGO减少中国元素；对于安全方面，后续每个小版本发版前都进行 /security-review 审查，每隔10个小版本进行一次整体的 claude-code-security 审查
+**CodeAide** 是一个功能强大的 JetBrains IDE 插件，为开发者提供 **Claude Code** 和 **OpenAI Codex** 双 AI 工具的可视化操作界面，让 AI 辅助编程变得更加高效和直观。
 
-一个功能强大的 IntelliJ IDEA 插件，为开发者提供 **Claude Code** 和 **OpenAI Codex** 双 AI 工具的可视化操作界面，让 AI 辅助编程变得更加高效和直观。
+本项目基于开源项目 [CC GUI](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui)（原名 `idea-claude-code-gui`，MIT 协议）二次开发，已完成整体更名，与原插件不再有任何标识冲突：
+
+- 新插件 id：`com.codeaide`（原 `com.github.idea-claude-code-gui`）
+- 新 Java 包名：`com.codeaide`（原 `com.github.claudecodegui`）
+- 新工具窗口 id `CodeAide`，新 Action 前缀 `CodeAide.*`
+- 新资源包：`messages.CodeAideBundle`，新图标 `codeaide-icon.svg`
+- 新用户数据目录：`~/.codeaide`（原 `~/.codemoss`），可与原插件并存安装、互不影响
+
+原作者及所有贡献者保留全部荣誉，在此致谢。
 
 <img width="850" alt="Image" src="/docs/img/banner.png" />
-
----
-
-## 插件下载
-
-[CC GUI（Claude or Codex） 下载](https://plugins.jetbrains.com/plugin/29342-cc-gui-claude-or-codex-)
 
 ---
 
@@ -52,7 +50,7 @@
 - 文件跳转和代码导航
 - 深色/浅色主题切换
 - 字体缩放和 IDE 字体同步
-- 国际化支持（中/英文自动切换）
+- 国际化支持（10 种语言）
 
 ### 会话管理
 - 历史会话记录和搜索
@@ -65,231 +63,55 @@
 
 ## 项目状态
 
-项目处于活跃开发阶段，代码持续更新中。版本历史和迭代进度请阅读 [CHANGELOG.md](CHANGELOG.md)
+项目处于积极开发阶段，持续更新中。版本历史和迭代进度请阅读 [CHANGELOG.md](CHANGELOG.md)
 
 ---
-
-### 贡献代码
-
-贡献代码前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)
-
----
-
 
 ## 本地开发调试
 
-### 1.安装前端依赖
+### 1. 安装前端依赖
 
 ```bash
 cd webview
 npm install
 ```
 
-### 2.安装ai-bridge依赖
+### 2. 安装 ai-bridge 依赖
 
 ```bash
 cd ai-bridge
 npm install
 ```
 
-### 3.调试插件
+### 3. 调试插件
 
 在 IDEA 中运行：
 ```bash
 ./gradlew clean runIde
 ```
 
-### 4.构建插件
+### 4. 构建插件
 
 ```sh
 ./gradlew clean buildPlugin
 
-# 生成的插件包会在 build/distributions/ 目录下（包体大约40MB）
+# 生成的插件包在 build/distributions/ 目录下
 ```
 
 ---
 
-## License
+## 贡献
 
-MIT
-
----
-
-## 贡献者列表
-
-感谢所有帮助 IDEA-Claude-Code-GUI 变得更好的贡献者！
-
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/zhukunpenglinyutong">
-        <img src="https://avatars.githubusercontent.com/u/31264015?size=100" width="100" height="100" alt="zhukunpenglinyutong" style="border-radius: 50%; border: 3px solid #ff6b35; box-shadow: 0 0 15px rgba(255, 107, 53, 0.6);" />
-      </a>
-      <div>⭐️⭐️⭐️</div>
-    </td>
-    <td align="center">
-      <a href="https://github.com/M1sury">
-        <img src="https://avatars.githubusercontent.com/u/64764195?size=100" width="100" height="100" alt="M1sury" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/gadfly3173">
-        <img src="https://avatars.githubusercontent.com/u/28685179?size=100" width="100" height="100" alt="gadfly3173" style="border-radius: 50%; border: 3px solid #ff6b35; box-shadow: 0 0 15px rgba(255, 107, 53, 0.6);" />
-      </a>
-      <div">🔥🔥🔥</div>
-    </td>
-    <td align="center">
-      <a href="https://github.com/song782360037">
-        <img src="https://avatars.githubusercontent.com/u/66980578?size=100" width="100" height="100" alt="song782360037" style="border-radius: 50%;" />
-      </a>
-      <div">🔥</div>
-    </td>
-    <td align="center">
-      <a href="https://github.com/hpstream">
-        <img src="https://avatars.githubusercontent.com/u/18394192?size=100" width="100" height="100" alt="hpstream" style="border-radius: 50%;" />
-      </a>
-      <div>🔥🔥</div>
-    </td>
-    <td align="center">
-      <a href="https://github.com/imblowsnow">
-        <img src="https://avatars.githubusercontent.com/u/74449531?size=100" width="100" height="100" alt="imblowsnow" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/Rinimabi">
-        <img src="https://avatars.githubusercontent.com/u/18625271?size=100" width="100" height="100" alt="Rinimabi" style="border-radius: 50%;" />
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/GotoFox">
-        <img src="https://avatars.githubusercontent.com/u/68596145?size=100" width="100" height="100" alt="GotoFox" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/changshunxu520">
-        <img src="https://avatars.githubusercontent.com/u/16171624?size=100" width="100" height="100" alt="changshunxu520" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/lie5860">
-        <img src="https://avatars.githubusercontent.com/u/30894657?size=100" width="100" height="100" alt="lie5860" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/buddhist-coder">
-        <img src="https://avatars.githubusercontent.com/u/61658071?size=100" width="100" height="100" alt="buddhist-coder" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/LaCreArthur">
-        <img src="https://avatars.githubusercontent.com/u/14138307?size=100" width="100" height="100" alt="LaCreArthur" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/dungnguyent8">
-        <img src="https://avatars.githubusercontent.com/u/39462756?size=100" width="100" height="100" alt="dungnguyent8" style="border-radius: 50%;" />
-      </a>
-      <div>🔥</div>
-    </td>
-    <td align="center">
-      <a href="https://github.com/magic5295">
-        <img src="https://avatars.githubusercontent.com/u/157901486?size=100" width="100" height="100" alt="magic5295" style="border-radius: 50%;" />
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/JackWPP">
-        <img src="https://avatars.githubusercontent.com/u/120316122?size=100" width="100" height="100" alt="JackWPP" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/luhua-123">
-        <img src="https://avatars.githubusercontent.com/u/83643600?size=100" width="100" height="100" alt="luhua-123" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/geofqiu-hub">
-        <img src="https://avatars.githubusercontent.com/u/248376932?size=100" width="100" height="100" alt="geofqiu-hub" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/1lck">
-        <img src="https://avatars.githubusercontent.com/u/159525154?size=100" width="100" height="100" alt="1lck" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/fz-lyle">
-        <img src="https://avatars.githubusercontent.com/u/35370530?size=100" width="100" height="100" alt="fz-lyle" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/dsudomoin">
-        <img src="https://avatars.githubusercontent.com/u/155488585?size=100" width="100" height="100" alt="dsudomoin" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/serega0005">
-        <img src="https://avatars.githubusercontent.com/u/39858725?size=100" width="100" height="100" alt="serega0005" style="border-radius: 50%;" />
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/jhaan83">
-        <img src="https://avatars.githubusercontent.com/u/45828854?size=100" width="100" height="100" alt="jhaan83" style="border-radius: 50%;" />
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/Olexandr1904">
-        <img src="https://avatars.githubusercontent.com/u/12022163?size=100" width="100" height="100" alt="Olexandr1904" style="border-radius: 50%;" />
-      </a>
-    </td>
-  </tr>
-</table>
-
----
-
-## 赞助支持
-
-如果这个项目对你有帮助，想请作者吃顿肯德基（KFC）或者喝杯咖啡，都是可以的~
-
-[查看赞助者列表 →](./SPONSORS.md)
-
----
-
-## AtomGit
-
-https://atomgit.com/zhukunpenglinyutong/idea-claude-code-gui
-
----
-
-## 友链
-
-感谢 [LINUX DO](https://linux.do/) 用户的支持与反馈
-
-感谢[AtomGit](https://atomgit.com/zhukunpenglinyutong/idea-claude-code-gui)平台G-Star认证
+贡献指南请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 
 ## 致谢
 
-最近有很多博主自发推荐本项目，心中十分感激，再次感谢《沉默的王二》《macrozheng》《JavaGuide》《Java知音》《鲲鹏talk 公众号》《程序员青戈》等博主推荐本项目，我会继续努力迭代，让大家用起来更舒适。
+- 上游项目：[zhukunpenglinyutong/jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui)（CC GUI，原名 Claude Code GUI）及其全体贡献者。
 
 ---
 
-## Star History
+## License
 
-[![Star History](https://api.star-history.com/svg?repos=zhukunpenglinyutong/idea-claude-code-gui&type=date&legend=top-left)](https://www.star-history.com/#zhukunpenglinyutong/idea-claude-code-gui&type=date&legend=top-left)
-
-<!-- LINK GROUP -->
-
-[github-contributors-shield]: https://img.shields.io/github/contributors/zhukunpenglinyutong/idea-claude-code-gui?color=c4f042&labelColor=black&style=flat-square
-[github-forks-shield]: https://img.shields.io/github/forks/zhukunpenglinyutong/idea-claude-code-gui?color=8ae8ff&labelColor=black&style=flat-square
-[github-issues-link]: https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues
-[github-issues-shield]: https://img.shields.io/github/issues/zhukunpenglinyutong/idea-claude-code-gui?color=ff80eb&labelColor=black&style=flat-square
-[github-license-link]: https://github.com/zhukunpenglinyutong/idea-claude-code-gui/blob/main/LICENSE
-[github-stars-shield]: https://img.shields.io/github/stars/zhukunpenglinyutong/idea-claude-code-gui?color=ffcb47&labelColor=black&style=flat-square
-[github-mit]: https://img.shields.io/badge/github-MIT-blue?logo=github
+MIT（见 [LICENSE](LICENSE)）

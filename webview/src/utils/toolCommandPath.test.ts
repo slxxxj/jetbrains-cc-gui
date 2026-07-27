@@ -3,18 +3,18 @@ import { extractFilePathFromCommand, isFileViewingCommand, parseCommandType } fr
 
 describe('toolCommandPath', () => {
   it('extracts a sed target from grouped commands', () => {
-    const command = "sed -n '1,220p' src/main/java/com/github/claudecodegui/dependency/NpmPermissionHelper.java && printf '\\n---\\n' && sed -n '1,220p' src/main/java/com/github/claudecodegui/dependency/SdkDefinition.java";
+    const command = "sed -n '1,220p' src/main/java/com/codeaide/dependency/NpmPermissionHelper.java && printf '\\n---\\n' && sed -n '1,220p' src/main/java/com/codeaide/dependency/SdkDefinition.java";
 
     expect(extractFilePathFromCommand(command)).toBe(
-      'src/main/java/com/github/claudecodegui/dependency/NpmPermissionHelper.java:1-220',
+      'src/main/java/com/codeaide/dependency/NpmPermissionHelper.java:1-220',
     );
   });
 
   it('extracts a path from shell-wrapped grouped commands', () => {
-    const command = "/bin/bash -lc '(sed -n '\\''230,430p'\\'' src/main/java/com/github/claudecodegui/dependency/DependencyManager.java && printf '\\''\\n---\\n'\\'' && sed -n '\\''260,340p'\\'' src/main/java/com/github/claudecodegui/handler/DependencyHandler.java)'";
+    const command = "/bin/bash -lc '(sed -n '\\''230,430p'\\'' src/main/java/com/codeaide/dependency/DependencyManager.java && printf '\\''\\n---\\n'\\'' && sed -n '\\''260,340p'\\'' src/main/java/com/codeaide/handler/DependencyHandler.java)'";
 
     expect(extractFilePathFromCommand(command)).toBe(
-      'src/main/java/com/github/claudecodegui/dependency/DependencyManager.java:230-430',
+      'src/main/java/com/codeaide/dependency/DependencyManager.java:230-430',
     );
   });
 
@@ -62,10 +62,10 @@ describe('toolCommandPath', () => {
     });
 
     it('identifies multi-file sed commands as read', () => {
-      const command = "sed -n '240,420p' src/main/java/com/github/claudecodegui/handler/DependencyHandler.java && sed -n '420,760p' src/main/java/com/github/claudecodegui/bridge/NodeDetector.java";
+      const command = "sed -n '240,420p' src/main/java/com/codeaide/handler/DependencyHandler.java && sed -n '420,760p' src/main/java/com/codeaide/bridge/NodeDetector.java";
       const result = parseCommandType(command);
       expect(result.type).toBe('read');
-      expect(result.path).toBe('src/main/java/com/github/claudecodegui/handler/DependencyHandler.java:240-420');
+      expect(result.path).toBe('src/main/java/com/codeaide/handler/DependencyHandler.java:240-420');
     });
 
     it('extracts clean file name from path with line numbers', () => {
@@ -79,14 +79,14 @@ describe('toolCommandPath', () => {
     });
 
     it('handles user-provided multi-sed command', () => {
-      const command = "sed -n '240,420p' src/main/java/com/github/claudecodegui/handler/DependencyHandler.java && sed -n '420,760p' src/main/java/com/github/claudecodegui/bridge/NodeDetector.java && sed -n '460,620p' src/main/java/com/github/claudecodegui/dependency/DependencyManager.java && sed -n '130,260p' webview/src/components/settings/DependencySection/index.tsx && sed -n '1,260p' webview/src/components/settings/hooks/useSettingsWindowCallbacks.ts";
+      const command = "sed -n '240,420p' src/main/java/com/codeaide/handler/DependencyHandler.java && sed -n '420,760p' src/main/java/com/codeaide/bridge/NodeDetector.java && sed -n '460,620p' src/main/java/com/codeaide/dependency/DependencyManager.java && sed -n '130,260p' webview/src/components/settings/DependencySection/index.tsx && sed -n '1,260p' webview/src/components/settings/hooks/useSettingsWindowCallbacks.ts";
 
       // Should identify as read type
       const result = parseCommandType(command);
       expect(result.type).toBe('read');
 
       // Should extract first file path
-      expect(result.path).toBe('src/main/java/com/github/claudecodegui/handler/DependencyHandler.java:240-420');
+      expect(result.path).toBe('src/main/java/com/codeaide/handler/DependencyHandler.java:240-420');
 
       // Extract clean file name for display
       const fileName = result.path?.split('/').pop()?.split(':')[0];

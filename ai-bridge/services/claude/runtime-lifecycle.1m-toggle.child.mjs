@@ -2,7 +2,7 @@
 // runtime-lifecycle.test.js.
 //
 // Why a separate process: this scenario calls buildRequestContext(), which
-// calls setupApiKey(). setupApiKey resolves credentials ONLY from ~/.codemoss +
+// calls setupApiKey(). setupApiKey resolves credentials ONLY from ~/.codeaide +
 // ~/.claude under the real home dir and deliberately ignores env vars, and
 // getRealHomeDir() caches that home path on first use. So the credential
 // environment must be in place BEFORE this process starts — the parent test

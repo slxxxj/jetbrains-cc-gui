@@ -9,7 +9,7 @@ import { join, basename } from 'path';
 import { setupApiKey, loadClaudeSettings, getCliUserAgent } from '../config/api-config.js';
 import { ensureAnthropicSdk, ensureBedrockSdk } from './claude/message-utils.js';
 import { resolveModelFromSettings } from '../utils/model-utils.js';
-import { getClaudeDir, getCodemossDir } from '../utils/path-utils.js';
+import { getClaudeDir, getCodeaideDir } from '../utils/path-utils.js';
 
 const DEFAULT_HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const MAX_CONVERSATION_TEXT = 1000;
@@ -114,14 +114,14 @@ async function hasExistingAiTitle(sessionFile) {
 }
 
 /**
- * Read the AI title generation toggle from ~/.codemoss/config.json.
+ * Read the AI title generation toggle from ~/.codeaide/config.json.
  * Defaults to true (enabled) when the config is missing, malformed, or the
- * field is not set, matching the Java CodemossSettingsService default.
+ * field is not set, matching the Java CodeaideSettingsService default.
  * @returns {Promise<boolean>}
  */
 async function isTitleGenerationEnabled() {
   try {
-    const configPath = join(getCodemossDir(), 'config.json');
+    const configPath = join(getCodeaideDir(), 'config.json');
     const text = await readFile(configPath, 'utf8');
     const config = JSON.parse(text);
     if (config && typeof config === 'object' && 'aiTitleGenerationEnabled' in config) {

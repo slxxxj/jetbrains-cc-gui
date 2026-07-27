@@ -138,8 +138,8 @@ export function collectUnresolvedToolUseIds(
  * Set to 60s to avoid false positives during long tool execution phases
  * (e.g., command execution, file operations) where no content deltas arrive
  * but the backend is still actively processing.  The backend heartbeat
- * mechanism in StreamMessageCoalescer keeps __lastStreamActivityAt bumped
- * via periodic updateMessages re-pushes.
+ * (window.onStreamingHeartbeat) plus mid-stream upsertMessage pushes keep
+ * __lastStreamActivityAt bumped while structural blocks stream in.
  */
 const STREAM_STALL_TIMEOUT_MS = 60_000;
 const STREAM_STALL_CHECK_INTERVAL_MS = 5_000;
@@ -196,6 +196,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     setLoadingStartTime,
     setIsThinking,
     setExpandedThinking,
+    setStreamingHint,
     streamingContentRef,
     streamingThinkingRef,
     isStreamingRef,
@@ -211,6 +212,13 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     getOrCreateStreamingAssistantIndex,
     patchAssistantForStreaming,
   } = options;
+
+  // Transient status hint (tool_preparing / compacting) cleanup helper.
+  // Functional form: returning the same reference when already null lets React
+  // bail out, so per-delta calls cost no re-render.
+  const clearStreamingHint = () => {
+    setStreamingHint?.((prev) => (prev ? null : prev));
+  };
 
   // ── Stream stall watchdog ──
   // Tracks the last time we received any streaming activity (delta or
@@ -258,6 +266,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
 
   window.onStreamStart = (mode?: string | boolean) => {
     if (window.__sessionTransitioning) return;
+    // New turn — drop any leftover hint from a previous turn whose cleanup was lost.
+    clearStreamingHint();
     const isReplayStart = mode === 'replay' || mode === true;
     // Clear any stale pending updateMessages from previous turn.
     // This prevents onStreamEnd from using outdated snapshot data.
@@ -407,6 +417,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (window.__sessionTransitioning) return;
     if (!isStreamingRef.current) return;
     window.__lastStreamActivityAt = Date.now();
+    // Visible text resumes — any tool-argument-generation / compaction hint is stale.
+    clearStreamingHint();
     streamingContentRef.current += delta;
     scheduleContentRaf();
   };
@@ -415,6 +427,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (window.__sessionTransitioning) return;
     if (!isStreamingRef.current) return;
     window.__lastStreamActivityAt = Date.now();
+    clearStreamingHint();
     streamingThinkingRef.current += delta;
     scheduleThinkingRaf();
   };
@@ -445,6 +458,9 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
 
   window.onStreamEnd = (sequence?: string | number) => {
     if (window.__sessionTransitioning) return;
+    // Turn is over (normal end, error finalize, or stall recovery) — any
+    // lingering tool_preparing / compacting hint must not survive it.
+    clearStreamingHint();
 
     // Idempotency guard: dual-path delivery (primary via flush callback +
     // fallback via Alarm) may send onStreamEnd twice for the same turn.
@@ -820,6 +836,10 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       // Stream not active, ignore (could be stale signal after stream ended)
       return;
     }
+    // A new assistant message started within the stream (tool_use loop
+    // iteration, or the first message after compaction) — the previous phase's
+    // hint no longer applies.
+    clearStreamingHint();
     // NOTE: content/thinking buffers are intentionally NOT cleared here.
     // The Java layer keeps ONE assistant message for the whole turn (including
     // every tool_use loop iteration), appending each turn's text/thinking as
@@ -846,5 +866,35 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     lastThinkingUpdateRef.current = 0;
     // Clear auto-expanded thinking keys for the new turn
     autoExpandedThinkingKeysRef.current.clear();
+  };
+
+  // Tool preparing — fired once when the model starts a tool_use content block
+  // (content_block_start), before the input_json_delta argument stream. Shows a
+  // transient "preparing tool call" hint during the otherwise silent argument-
+  // generation phase. Cleared when the tool card upserts (see upsertMessage in
+  // messageCallbacks), when text/thinking deltas resume, or on stream cleanup.
+  window.onToolPreparing = (toolName: string) => {
+    if (window.__sessionTransitioning) return;
+    if (!isStreamingRef.current) return;
+    if (window.__lastStreamActivityAt !== undefined) {
+      window.__lastStreamActivityAt = Date.now();
+    }
+    setStreamingHint?.({ kind: 'tool_preparing', toolName: typeof toolName === 'string' ? toolName : '' });
+  };
+
+  // Compact status — context compaction lifecycle from the SDK system messages
+  // (subtype 'status' with status 'compacting', and subtype 'compact_boundary').
+  // true shows a "compacting context" hint; false clears only a compacting hint
+  // (a tool_preparing hint set afterwards must survive the end signal).
+  window.onCompactStatus = (value: string | boolean) => {
+    if (window.__sessionTransitioning) return;
+    const compacting = value === true || value === 'true';
+    if (isStreamingRef.current && window.__lastStreamActivityAt !== undefined) {
+      window.__lastStreamActivityAt = Date.now();
+    }
+    setStreamingHint?.((prev) => {
+      if (compacting) return { kind: 'compacting' };
+      return prev?.kind === 'compacting' ? null : prev;
+    });
   };
 }

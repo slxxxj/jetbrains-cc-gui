@@ -1,12 +1,14 @@
 /**
  * MCP configuration loader module
- * Provides functionality to read MCP server configuration from ~/.claude.json
+ * Reads MCP server configuration from the plugin-owned ~/.codeaide/mcp.json
+ * (Phase 5c), falling back to ~/.claude.json (read-only) when the codeaide
+ * file does not exist yet.
  */
 
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { getRealHomeDir } from '../../../utils/path-utils.js';
+import { getCodeaideDir, getRealHomeDir } from '../../../utils/path-utils.js';
 import { log } from './logger.js';
 
 /**
@@ -68,21 +70,52 @@ function validateConfigStructure(config) {
 }
 
 /**
+ * Load the raw MCP configuration object.
+ * Priority: ~/.codeaide/mcp.json (plugin-owned) > ~/.claude.json (read-only
+ * legacy fallback). Returns null when neither exists or parsing fails.
+ */
+async function readRawMcpConfig() {
+  const codeaideMcpPath = join(getCodeaideDir(), 'mcp.json');
+
+  if (existsSync(codeaideMcpPath)) {
+    try {
+      const content = await readFile(codeaideMcpPath, 'utf8');
+      return JSON.parse(content);
+    } catch (error) {
+      log('error', 'Failed to parse ~/.codeaide/mcp.json:', error.message);
+      return null;
+    }
+  }
+
+  const claudeJsonPath = join(getRealHomeDir(), '.claude.json');
+
+  if (!existsSync(claudeJsonPath)) {
+    log('info', 'No MCP config found (~/.codeaide/mcp.json and ~/.claude.json missing)');
+    return null;
+  }
+
+  const content = await readFile(claudeJsonPath, 'utf8');
+  return JSON.parse(content);
+}
+
+/**
  * Parse the server list and disabled list from the MCP configuration file
  * Extracts shared logic used by both loadMcpServersConfig and loadAllMcpServersInfo
  * @param {string} cwd - Current working directory (used for project detection)
  * @returns {Promise<{mcpServers: Object, disabledServers: Set<string>} | null>} Parse result, or null on failure
  */
 async function parseMcpConfig(cwd = null) {
-  const claudeJsonPath = join(getRealHomeDir(), '.claude.json');
-
-  if (!existsSync(claudeJsonPath)) {
-    log('info', '~/.claude.json not found');
+  let config;
+  try {
+    config = await readRawMcpConfig();
+  } catch (error) {
+    log('error', 'Failed to load MCP config:', error.message);
     return null;
   }
 
-  const content = await readFile(claudeJsonPath, 'utf8');
-  const config = JSON.parse(content);
+  if (!config) {
+    return null;
+  }
 
   // Validate configuration structure
   const validation = validateConfigStructure(config);
@@ -148,7 +181,7 @@ async function parseMcpConfig(cwd = null) {
 }
 
 /**
- * Read MCP server configuration from ~/.claude.json
+ * Read MCP server configuration (codeaide mcp.json first, ~/.claude.json fallback)
  * Supports two modes:
  * 1. Global config - uses the global mcpServers
  * 2. Project config - uses project-specific mcpServers

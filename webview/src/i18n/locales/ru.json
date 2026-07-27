@@ -92,6 +92,8 @@
     "unknownFile": "Неизвестный файл",
     "attachmentsUploaded": "[Вложения загружены]",
     "streamingConnected": "{{provider}} обрабатывает запрос",
+    "preparingToolCall": "Подготовка вызова инструмента: {{toolName}}",
+    "compactingContext": "Сжатие контекста",
     "showEarlierMessages": "Показать предыдущие сообщения ({{count}})",
     "totalDuration": "Этот ответ занял",
     "tokenUsage": "вход {{input}} / выход {{output}}",
@@ -316,28 +318,17 @@
     "dependenciesDesc": "Управление установкой и обновлением зависимостей AI SDK",
     "dependency": {
       "title": "Управление зависимостями SDK",
-      "description": "Управление зависимостями AI SDK. Установите необходимый SDK перед первым использованием.",
-      "installPolicyTip": "Проблемы с установкой? Скопируйте ошибку в терминальный CLI AI для решения",
+      "description": "Просмотр состояния установки SDK-зависимостей. Плагин устанавливает и обновляет их автоматически.",
+      "installPolicyTip": "SDK-зависимости устанавливаются и обновляются автоматически; при сбое выполняется автоматическая повторная попытка. Подробности — в журнале IDE.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Необходим для функций Claude AI. Включает Claude Code SDK и связанные зависимости.",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Необходим для функций Codex AI. Включает OpenAI Codex SDK.",
       "loading": "Загрузка статуса зависимостей...",
-      "install": "Установить",
-      "installing": "Установка...",
-      "uninstall": "Удалить",
-      "uninstalling": "Удаление...",
-      "update": "Обновить",
-      "updateAvailable": "Доступно обновление",
-      "installLogs": "Журнал установки",
-      "waitingForLogs": "Ожидание вывода журнала...",
-      "nodeNotConfigured": "Node.js не настроен. Укажите путь в основных настройках.",
-      "installSuccess": "{{name}} успешно установлен",
-      "installFailed": "Ошибка установки: {{error}}",
-      "uninstallSuccess": "{{name}} удалён",
-      "uninstallFailed": "Ошибка удаления: {{error}}",
-      "updating": "Обновление...",
-      "updateSuccess": "{{name}} успешно обновлён"
+      "statusInstalled": "Установлено",
+      "statusNotInstalled": "Не установлено",
+      "statusInstalling": "Установка…",
+      "statusError": "Ошибка, автоматический повтор"
     },
     "usage": "Статистика использования",
     "usageDesc": "Просмотр потребления токенов, статистики затрат и анализа тенденций",
@@ -365,12 +356,20 @@
       "prompt": {
         "label": "Дополнительный промпт",
         "placeholder": "Добавьте дополнительные требования, например, генерировать коммит на английском, включать номер issue и т.д...",
-        "hint": "Плагин содержит встроенные промпты для CCG Commits. Ваш текст будет использован как дополнительные требования, и AI отдаст приоритет вашим указаниям."
+        "hint": "Плагин содержит встроенные промпты для CodeAide Commits. Ваш текст будет использован как дополнительные требования, и AI отдаст приоритет вашим указаниям."
       },
       "projectPrompt": {
         "label": "Дополнительный промпт для проекта",
         "placeholder": "Добавьте здесь требования, специфичные для проекта, например: scope должен содержать имя модуля, body коммита должен включать область влияния и т.д...",
         "hint": "Этот промпт применяется только к текущему проекту и объединяется с глобальным дополнительным промптом. При противоречии приоритет отдаётся промпту проекта. Разные проекты можно настраивать независимо."
+      },
+      "agentConfig": {
+        "label": "Параллельные агенты (большие изменения)",
+        "batchSize": "Файлов на агента",
+        "maxParallel": "Макс. параллельных агентов",
+        "fastMode": "Быстрый режим (без размышлений)",
+        "includeFileDetail": "Добавлять детали по файлам",
+        "hint": "Если число изменённых файлов превышает размер пакета, агенты обрабатывают пакеты параллельно, а сводки объединяются в одно сообщение коммита, что позволяет избежать тайм-аутов."
       },
       "codeReview": {
         "comingSoon": "Скоро",
@@ -517,6 +516,7 @@
       "cliLoginDisableTitle": "Отозвать авторизацию входа CLI",
       "cliLoginDisableMessage": "Это прекратит использование состояния входа CLI и оставит Claude без активного провайдера, пока вы явно не включите другой.",
       "cliLoginAccountInfo": "Вошел как: {{email}}",
+      "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
       "subscriptionTutorial": {
         "entry": "Руководство по подписке",
         "dialogTitle": "Как использовать аккаунт подписки",
@@ -542,7 +542,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "Если это всё ещё не работает, сообщите о проблеме на GitHub: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Настройка аккаунта подписки Codex",
@@ -556,7 +556,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "Если это всё ещё не работает, сообщите о проблеме на GitHub: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -603,7 +603,7 @@
         "customModels": "Пользовательские модели",
         "customModelsHint": "Добавьте дополнительные модели, поддерживаемые этим провайдером. Пользовательские модели будут отображаться вверху списка выбора моделей",
         "jsonConfig": "JSON-конфигурация",
-        "jsonConfigDescription": "Настройте полное содержимое settings.json, поддерживаются все поля (model, alwaysThinkingEnabled, ccSwitchProviderId, codemossProviderId и т.д.)",
+        "jsonConfigDescription": "Настройте полное содержимое settings.json, поддерживаются все поля (model, alwaysThinkingEnabled, ccSwitchProviderId, codeaideProviderId и т.д.)",
         "jsonError": "Некорректный формат JSON",
         "required": "*",
         "showApiKey": "Показать",
@@ -669,6 +669,7 @@
         "cliLoginAuthorizeDetail": "Убедитесь, что вы вошли через 'codex login' в терминале. Ваш текущий config.toml будет сохранен.",
         "cliLoginDisableTitle": "Отключить вход Codex CLI",
         "cliLoginDisableMessage": "Это восстановит ваш предыдущий config.toml и переключит на API ключ.",
+        "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
         "modelIdRequired": "ID модели обязателен",
         "modelIdInvalid": "Некорректный формат ID модели (допускаются буквы, цифры, точки, дефисы, подчёркивания, слэши и двоеточия)",
         "modelIdDuplicate": "ID модели уже существует",
@@ -1422,6 +1423,13 @@
     "searchPlaceholder": "Поиск моделей",
     "noModelsFound": "Модели не найдены",
     "hiddenModelCount": "+ {{count}} дополнительных моделей. Введите текст для поиска.",
+    "refreshList": "Refresh model list",
+    "refreshListHint": "Fetch the latest model list from the current provider",
+    "subagent": {
+      "title": "Select subagent model",
+      "default": "Default (follow main model)",
+      "defaultDescription": "Subagents use the main model"
+    },
     "claude": {
       "sonnet46": {
         "label": "Sonnet 4.6",
@@ -1683,18 +1691,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "Установка SDK не завершена — отсутствует нативный бинарник",
-      "intro": "Это известная проблема зеркала npm Taobao (не баг плагина). Зеркало не полностью синхронизировало платформо-зависимые файлы. Вы можете решить это вручную одним из способов ниже:",
+      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug) — the mirror hasn't fully synchronized the platform-specific files. The plugin will retry the installation automatically; you can also speed up recovery with the option below:",
       "reason": "Эта проблема исчезнет автоматически, когда зеркало Taobao завершит синхронизацию — никаких дополнительных действий не требуется.",
       "solutions": {
         "switchRegistry": {
-          "title": "Вариант 1: временно переключиться на официальный реестр и переустановить",
+          "title": "Option 1: Switch to the official registry and let the plugin retry",
           "step0": "1. Выполните в терминале (переключение на официальный реестр npm):",
-          "step1": "2. Откройте настройки управления зависимостями плагина и нажмите «Переустановить»:",
-          "step2": "3. После завершения переустановки переключитесь обратно на зеркало Taobao:"
-        },
-        "downgrade": {
-          "title": "Вариант 2: откатить на более раннюю версию",
-          "step0": "В управлении зависимостями переключите версию SDK на v0.2.112 или более раннюю. После переключения перезапустите IDEA."
+          "step1": "2. The plugin retries the installation automatically; afterwards you can switch back to the Taobao mirror (optional). Check the logs if it still fails:"
         }
       }
     },
@@ -1708,9 +1711,8 @@
           "step0": "Выполните команду ниже в терминале, чтобы увидеть свою версию. Рекомендуется Node 22 или текущая LTS — пользователи сообщили о многих проблемах с Node 24, поэтому отдавайте предпочтение Node 20 или 22:"
         },
         "reinstallLatestSdk": {
-          "title": "Вариант 2: Переустановите последний SDK из официального реестра npm",
-          "step0": "1. Переключитесь на официальный реестр npm (избегайте зеркала Taobao — у него может не быть последней версии):",
-          "step1": "2. Откройте управление зависимостями и переустановите последний SDK:"
+          "title": "Option 2: Switch to the official npm registry and let the plugin reinstall the latest SDK",
+          "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
     }

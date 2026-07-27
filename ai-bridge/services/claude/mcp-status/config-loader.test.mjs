@@ -9,7 +9,7 @@ import path from 'node:path';
 // override here and share the same temp HOME across all tests in this file.
 const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
-const tempHomeRaw = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-gui-mcp-config-'));
+const tempHomeRaw = fs.mkdtempSync(path.join(os.tmpdir(), 'codeaide-mcp-config-'));
 const tempHome = fs.realpathSync(tempHomeRaw);
 process.env.HOME = tempHome;
 process.env.USERPROFILE = tempHome;
@@ -17,6 +17,7 @@ process.env.USERPROFILE = tempHome;
 const { loadMcpServersConfigAsRecord, loadMcpServersConfig } = await import('./config-loader.js');
 
 const claudeJsonPath = path.join(tempHome, '.claude.json');
+const codeaideMcpPath = path.join(tempHome, '.codeaide', 'mcp.json');
 
 function writeConfig(obj) {
   fs.writeFileSync(claudeJsonPath, JSON.stringify(obj));
@@ -24,6 +25,15 @@ function writeConfig(obj) {
 
 function clearConfig() {
   try { fs.unlinkSync(claudeJsonPath); } catch { /* not present */ }
+}
+
+function writeCodeaideMcp(obj) {
+  fs.mkdirSync(path.dirname(codeaideMcpPath), { recursive: true });
+  fs.writeFileSync(codeaideMcpPath, JSON.stringify(obj));
+}
+
+function clearCodeaideMcp() {
+  try { fs.unlinkSync(codeaideMcpPath); } catch { /* not present */ }
 }
 
 test.after(() => {
@@ -90,4 +100,71 @@ test('loadMcpServersConfig still returns an array (empty on missing config)', as
   const list = await loadMcpServersConfig();
   assert.ok(Array.isArray(list));
   assert.equal(list.length, 0);
+});
+
+test('~/.codeaide/mcp.json takes priority over ~/.claude.json', async () => {
+  clearCodeaideMcp();
+  try {
+    writeConfig({
+      mcpServers: { legacy: { command: 'node', args: ['legacy.js'] } }
+    });
+    writeCodeaideMcp({
+      mcpServers: { codeaide: { command: 'node', args: ['codeaide.js'] } }
+    });
+
+    const result = await loadMcpServersConfigAsRecord();
+    assert.ok(result, 'expected a non-null record');
+    assert.deepEqual(Object.keys(result), ['codeaide']);
+    assert.deepEqual(result.codeaide, { command: 'node', args: ['codeaide.js'] });
+  } finally {
+    clearCodeaideMcp();
+    clearConfig();
+  }
+});
+
+test('~/.claude.json is still used when ~/.codeaide/mcp.json does not exist', async () => {
+  clearCodeaideMcp();
+  writeConfig({
+    mcpServers: { legacy: { command: 'node', args: ['legacy.js'] } }
+  });
+  const result = await loadMcpServersConfigAsRecord();
+  assert.ok(result, 'expected a non-null record');
+  assert.deepEqual(Object.keys(result), ['legacy']);
+  clearConfig();
+});
+
+test('returns null when ~/.codeaide/mcp.json holds invalid JSON', async () => {
+  clearConfig();
+  fs.mkdirSync(path.dirname(codeaideMcpPath), { recursive: true });
+  fs.writeFileSync(codeaideMcpPath, '{ not valid json');
+  try {
+    assert.equal(await loadMcpServersConfigAsRecord(), null);
+  } finally {
+    clearCodeaideMcp();
+  }
+});
+
+test('codeaide mcp.json supports project-level servers and disabled lists', async () => {
+  clearConfig();
+  try {
+    writeCodeaideMcp({
+      mcpServers: { globalSrv: { command: 'node' } },
+      disabledMcpServers: ['globalSrv'],
+      projects: {
+        '/proj/a': {
+          mcpServers: { projectSrv: { url: 'http://localhost:9999' } },
+          disabledMcpServers: []
+        }
+      }
+    });
+
+    const globalOnly = await loadMcpServersConfigAsRecord();
+    assert.equal(globalOnly, null, 'globally disabled server must be filtered');
+
+    const withProject = await loadMcpServersConfigAsRecord('/proj/a');
+    assert.ok(withProject, 'expected a non-null record');
+    assert.deepEqual(Object.keys(withProject), ['projectSrv']);
+  } finally {
+    clearCodeaideMcp();
+  }
 });

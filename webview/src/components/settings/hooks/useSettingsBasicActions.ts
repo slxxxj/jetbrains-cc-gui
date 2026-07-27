@@ -15,12 +15,7 @@ import {
   SKIP_NEW_SESSION_CONFIRM_EVENT,
   type SkipNewSessionConfirmChangedDetail,
 } from '../../../utils/skipNewSessionConfirm';
-
-const sendToJava = (message: string) => {
-  if (window.sendToJava) {
-    window.sendToJava(message);
-  }
-};
+import { sendBridgeEvent, sendToJava } from '../../../utils/bridge';
 
 export interface UseSettingsBasicActionsProps {
   streamingEnabledProp?: boolean;
@@ -311,69 +306,69 @@ export function useSettingsBasicActions({
   const handleSaveNodePath = useCallback(() => {
     setSavingNodePath(true);
     const payload = { path: (nodePath || '').trim() };
-    sendToJava(`set_node_path:${JSON.stringify(payload)}`);
+    sendToJava('set_node_path', payload);
   }, [nodePath]);
 
   const handleSaveClaudeCliPath = useCallback(() => {
     setSavingClaudeCliPath(true);
     const payload = { path: (claudeCliPath || '').trim() };
-    sendToJava(`set_claude_cli_path:${JSON.stringify(payload)}`);
+    sendToJava('set_claude_cli_path', payload);
   }, [claudeCliPath]);
 
   const handleSaveWorkingDirectory = useCallback(() => {
     setSavingWorkingDirectory(true);
     const payload = { customWorkingDir: (workingDirectory || '').trim() };
-    sendToJava(`set_working_directory:${JSON.stringify(payload)}`);
+    sendToJava('set_working_directory', payload);
   }, [workingDirectory]);
 
   const handleUiFontSelectionChange = useCallback((selection: string) => {
     if (selection === 'followEditor') {
-      sendToJava(`set_ui_font_config:${JSON.stringify({ mode: 'followEditor' })}`);
+      sendToJava('set_ui_font_config', { mode: 'followEditor' });
       return;
     }
 
     if (selection === 'customFile' && uiFontConfig?.customFontPath) {
-      sendToJava(`set_ui_font_config:${JSON.stringify({
+      sendToJava('set_ui_font_config', {
         mode: 'customFile',
         customFontPath: uiFontConfig.customFontPath,
-      })}`);
+      });
     }
   }, [uiFontConfig?.customFontPath]);
 
   const handleSaveUiFontCustomPath = useCallback((path: string) => {
-    sendToJava(`set_ui_font_config:${JSON.stringify({
+    sendToJava('set_ui_font_config', {
       mode: 'customFile',
       customFontPath: path,
-    })}`);
+    });
   }, []);
 
   const handleBrowseUiFontFile = useCallback(() => {
-    sendToJava('browse_ui_font_file:');
+    sendBridgeEvent('browse_ui_font_file');
   }, []);
 
   const handleCodeFontSelectionChange = useCallback((selection: string) => {
     if (selection === 'followEditor') {
-      sendToJava(`set_code_font_config:${JSON.stringify({ mode: 'followEditor' })}`);
+      sendToJava('set_code_font_config', { mode: 'followEditor' });
       return;
     }
 
     if (selection === 'customFile' && codeFontConfig?.customFontPath) {
-      sendToJava(`set_code_font_config:${JSON.stringify({
+      sendToJava('set_code_font_config', {
         mode: 'customFile',
         customFontPath: codeFontConfig.customFontPath,
-      })}`);
+      });
     }
   }, [codeFontConfig?.customFontPath]);
 
   const handleSaveCodeFontCustomPath = useCallback((path: string) => {
-    sendToJava(`set_code_font_config:${JSON.stringify({
+    sendToJava('set_code_font_config', {
       mode: 'customFile',
       customFontPath: path,
-    })}`);
+    });
   }, []);
 
   const handleBrowseCodeFontFile = useCallback(() => {
-    sendToJava('browse_code_font_file:');
+    sendBridgeEvent('browse_code_font_file');
   }, []);
 
   // Streaming toggle change handler
@@ -385,14 +380,14 @@ export function useSettingsBasicActions({
       // Fallback to local state if no prop callback provided
       setLocalStreamingEnabled(enabled);
       const payload = { streamingEnabled: enabled };
-      sendToJava(`set_streaming_enabled:${JSON.stringify(payload)}`);
+      sendToJava('set_streaming_enabled', payload);
     }
   }, [onStreamingEnabledChangeProp]);
 
   const handleCodexSandboxModeChange = useCallback((mode: 'workspace-write' | 'danger-full-access') => {
     setCodexSandboxMode(mode);
     const payload = { sandboxMode: mode };
-    sendToJava(`set_codex_sandbox_mode:${JSON.stringify(payload)}`);
+    sendToJava('set_codex_sandbox_mode', payload);
   }, []);
 
   // Send shortcut change handler
@@ -404,7 +399,7 @@ export function useSettingsBasicActions({
       // Fallback to local state if no prop callback provided
       setLocalSendShortcut(shortcut);
       const payload = { sendShortcut: shortcut };
-      sendToJava(`set_send_shortcut:${JSON.stringify(payload)}`);
+      sendToJava('set_send_shortcut', payload);
     }
   }, [onSendShortcutChangeProp]);
 
@@ -417,7 +412,7 @@ export function useSettingsBasicActions({
       // Fallback to local state if no prop callback provided
       setLocalAutoOpenFileEnabled(enabled);
       const payload = { autoOpenFileEnabled: enabled };
-      sendToJava(`set_auto_open_file_enabled:${JSON.stringify(payload)}`);
+      sendToJava('set_auto_open_file_enabled', payload);
     }
   }, [onAutoOpenFileEnabledChangeProp]);
 
@@ -425,21 +420,21 @@ export function useSettingsBasicActions({
   const handleSoundNotificationEnabledChange = useCallback((enabled: boolean) => {
     setSoundNotificationEnabled(enabled);
     const payload = { enabled };
-    sendToJava(`set_sound_notification_enabled:${JSON.stringify(payload)}`);
+    sendToJava('set_sound_notification_enabled', payload);
   }, []);
 
   // Sound only-when-unfocused toggle change handler
   const handleSoundOnlyWhenUnfocusedChange = useCallback((enabled: boolean) => {
     setSoundOnlyWhenUnfocused(enabled);
     const payload = { onlyWhenUnfocused: enabled };
-    sendToJava(`set_sound_only_when_unfocused:${JSON.stringify(payload)}`);
+    sendToJava('set_sound_only_when_unfocused', payload);
   }, []);
 
   // Selected sound change handler
   const handleSelectedSoundChange = useCallback((soundId: string) => {
     setSelectedSound(soundId);
     const payload = { soundId };
-    sendToJava(`set_selected_sound:${JSON.stringify(payload)}`);
+    sendToJava('set_selected_sound', payload);
   }, []);
 
   // Custom sound path change handler
@@ -450,53 +445,53 @@ export function useSettingsBasicActions({
   // Save custom sound path
   const handleSaveCustomSoundPath = useCallback(() => {
     const payload = { path: customSoundPath };
-    sendToJava(`set_custom_sound_path:${JSON.stringify(payload)}`);
+    sendToJava('set_custom_sound_path', payload);
   }, [customSoundPath]);
 
   // Test sound
   const handleTestSound = useCallback(() => {
     const payload = { soundId: selectedSound, path: customSoundPath };
-    sendToJava(`test_sound:${JSON.stringify(payload)}`);
+    sendToJava('test_sound', payload);
   }, [selectedSound, customSoundPath]);
 
   // Browse sound file
   const handleBrowseSound = useCallback(() => {
-    sendToJava('browse_sound_file:');
+    sendBridgeEvent('browse_sound_file');
   }, []);
 
   // AI commit generation toggle change handler
   const handleCommitGenerationEnabledChange = useCallback((enabled: boolean) => {
     setCommitGenerationEnabled(enabled);
     const payload = { commitGenerationEnabled: enabled };
-    sendToJava(`set_commit_generation_enabled:${JSON.stringify(payload)}`);
+    sendToJava('set_commit_generation_enabled', payload);
   }, []);
 
   // AI session title generation toggle change handler
   const handleAiTitleGenerationEnabledChange = useCallback((enabled: boolean) => {
     setAiTitleGenerationEnabled(enabled);
     const payload = { aiTitleGenerationEnabled: enabled };
-    sendToJava(`set_ai_title_generation_enabled:${JSON.stringify(payload)}`);
+    sendToJava('set_ai_title_generation_enabled', payload);
   }, []);
 
   // Status bar widget toggle change handler
   const handleStatusBarWidgetEnabledChange = useCallback((enabled: boolean) => {
     setStatusBarWidgetEnabled(enabled);
     const payload = { statusBarWidgetEnabled: enabled };
-    sendToJava(`set_status_bar_widget_enabled:${JSON.stringify(payload)}`);
+    sendToJava('set_status_bar_widget_enabled', payload);
   }, []);
 
   // Task completion notification toggle change handler
   const handleTaskCompletionNotificationEnabledChange = useCallback((enabled: boolean) => {
     setTaskCompletionNotificationEnabled(enabled);
     const payload = { taskCompletionNotificationEnabled: enabled };
-    sendToJava(`set_task_completion_notification_enabled:${JSON.stringify(payload)}`);
+    sendToJava('set_task_completion_notification_enabled', payload);
   }, []);
 
   // AskUserQuestion reminder notification toggle change handler
   const handleAskUserQuestionNotificationEnabledChange = useCallback((enabled: boolean) => {
     setAskUserQuestionNotificationEnabled(enabled);
     const payload = { askUserQuestionNotificationEnabled: enabled };
-    sendToJava(`set_ask_user_question_notification_enabled:${JSON.stringify(payload)}`);
+    sendToJava('set_ask_user_question_notification_enabled', payload);
   }, []);
 
   // Permission dialog timeout change handler
@@ -505,7 +500,7 @@ export function useSettingsBasicActions({
     // App.tsx owns the canonical state and provides the callback in production.
     onPermissionDialogTimeoutChangeProp?.(clamped);
     const payload = { permissionDialogTimeoutSeconds: clamped };
-    sendToJava(`set_permission_dialog_timeout:${JSON.stringify(payload)}`);
+    sendToJava('set_permission_dialog_timeout', payload);
   }, [onPermissionDialogTimeoutChangeProp]);
 
   const handleCommitAiProviderChange = useCallback((provider: CommitAiProvider) => {
@@ -517,10 +512,10 @@ export function useSettingsBasicActions({
       resolutionSource: providerAvailable ? 'manual' : 'unavailable',
     };
     setCommitAiConfig(nextConfig);
-    sendToJava(`set_commit_ai_config:${JSON.stringify({
+    sendToJava('set_commit_ai_config', {
       provider,
       models: nextConfig.models,
-    })}`);
+    });
   }, [commitAiConfig]);
 
   const handleCommitAiModelChange = useCallback((model: string) => {
@@ -533,10 +528,10 @@ export function useSettingsBasicActions({
       },
     };
     setCommitAiConfig(nextConfig);
-    sendToJava(`set_commit_ai_config:${JSON.stringify({
+    sendToJava('set_commit_ai_config', {
       provider: commitAiConfig.provider,
       models: nextConfig.models,
-    })}`);
+    });
   }, [commitAiConfig]);
 
   const handleCommitAiResetToDefault = useCallback(() => {
@@ -551,10 +546,10 @@ export function useSettingsBasicActions({
         : 'unavailable',
     };
     setCommitAiConfig(nextConfig);
-    sendToJava(`set_commit_ai_config:${JSON.stringify({
+    sendToJava('set_commit_ai_config', {
       provider: null,
       models: nextConfig.models,
-    })}`);
+    });
   }, [commitAiConfig]);
 
   const handlePromptEnhancerProviderChange = useCallback((provider: PromptEnhancerProvider) => {
@@ -566,10 +561,10 @@ export function useSettingsBasicActions({
       resolutionSource: providerAvailable ? 'manual' : 'unavailable',
     };
     setPromptEnhancerConfig(nextConfig);
-    sendToJava(`set_prompt_enhancer_config:${JSON.stringify({
+    sendToJava('set_prompt_enhancer_config', {
       provider,
       models: nextConfig.models,
-    })}`);
+    });
   }, [promptEnhancerConfig]);
 
   const handlePromptEnhancerModelChange = useCallback((model: string) => {
@@ -582,10 +577,10 @@ export function useSettingsBasicActions({
       },
     };
     setPromptEnhancerConfig(nextConfig);
-    sendToJava(`set_prompt_enhancer_config:${JSON.stringify({
+    sendToJava('set_prompt_enhancer_config', {
       provider: promptEnhancerConfig.provider,
       models: nextConfig.models,
-    })}`);
+    });
   }, [promptEnhancerConfig]);
 
   const handlePromptEnhancerResetToDefault = useCallback(() => {
@@ -600,24 +595,24 @@ export function useSettingsBasicActions({
         : 'unavailable',
     };
     setPromptEnhancerConfig(nextConfig);
-    sendToJava(`set_prompt_enhancer_config:${JSON.stringify({
+    sendToJava('set_prompt_enhancer_config', {
       provider: null,
       models: nextConfig.models,
-    })}`);
+    });
   }, [promptEnhancerConfig]);
 
   // Commit AI prompt save handler
   const handleSaveCommitPrompt = useCallback(() => {
     setSavingCommitPrompt(true);
     const payload = { prompt: commitPrompt };
-    sendToJava(`set_commit_prompt:${JSON.stringify(payload)}`);
+    sendToJava('set_commit_prompt', payload);
   }, [commitPrompt]);
 
   // Project-level commit AI prompt save handler
   const handleSaveProjectCommitPrompt = useCallback(() => {
     setSavingProjectCommitPrompt(true);
     const payload = { prompt: projectCommitPrompt };
-    sendToJava(`set_project_commit_prompt:${JSON.stringify(payload)}`);
+    sendToJava('set_project_commit_prompt', payload);
   }, [projectCommitPrompt]);
 
   return {

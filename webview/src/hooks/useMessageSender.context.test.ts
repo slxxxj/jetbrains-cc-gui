@@ -38,10 +38,12 @@ describe('useMessageSender - /context command', () => {
 
   const getBridgePayload = (eventName: string) => {
     const calls = (window.sendToJava as any).mock.calls.map((call: [string]) => call[0]);
-    const prefix = `${eventName}:`;
-    const sendCall = calls.find((call: string) => call.startsWith(prefix));
+    const sendCall = calls
+      .map((call: string) => JSON.parse(call) as { type: string; payload?: unknown })
+      .find((envelope: { type: string; payload?: unknown }) => envelope.type === eventName);
     expect(sendCall).toBeTruthy();
-    return JSON.parse(sendCall!.substring(prefix.length));
+    const payload = sendCall!.payload;
+    return typeof payload === 'string' ? JSON.parse(payload) : payload;
   };
 
   beforeEach(() => {
@@ -62,9 +64,9 @@ describe('useMessageSender - /context command', () => {
 
     expect(window.sendToJava).toHaveBeenCalledTimes(1);
     const call = (window.sendToJava as any).mock.calls[0][0] as string;
-    expect(call).toMatch(/^get_context_usage:/);
+    expect(JSON.parse(call).type).toBe('get_context_usage');
 
-    const payload = JSON.parse(call.substring('get_context_usage:'.length));
+    const payload = getBridgePayload('get_context_usage');
     expect(payload.model).toBe('claude-opus-4-8');
     expect(payload.requestId).toBeTruthy();
   });
@@ -82,8 +84,7 @@ describe('useMessageSender - /context command', () => {
     });
 
     expect(window.sendToJava).toHaveBeenCalledTimes(1);
-    const call = (window.sendToJava as any).mock.calls[0][0] as string;
-    const payload = JSON.parse(call.substring('get_context_usage:'.length));
+    const payload = getBridgePayload('get_context_usage');
     expect(payload.model).toBe('claude-opus-4-8[1m]');
   });
 

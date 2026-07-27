@@ -3,6 +3,8 @@
  * Used by message-service.js and persistent-query-service.js.
  */
 
+import { emit } from '../protocol/emitter.js';
+
 export const DEFAULT_USAGE = {
   input_tokens: 0,
   output_tokens: 0,
@@ -29,15 +31,14 @@ export function mergeUsage(accumulated, newUsage) {
 }
 
 /**
- * Emit [USAGE] tag from accumulated usage data during streaming.
- * NOTE: Uses process.stdout.write for consistent buffering with other IPC messages.
+ * Emit accumulated usage data during streaming as a 'usage' envelope.
  */
 export function emitAccumulatedUsage(accumulated) {
   if (!accumulated) return;
-  process.stdout.write('[USAGE] ' + JSON.stringify({
+  emit('usage', {
     input_tokens: accumulated.input_tokens || 0,
     output_tokens: accumulated.output_tokens || 0,
     cache_creation_input_tokens: accumulated.cache_creation_input_tokens || 0,
     cache_read_input_tokens: accumulated.cache_read_input_tokens || 0
-  }) + '\n');
+  });
 }

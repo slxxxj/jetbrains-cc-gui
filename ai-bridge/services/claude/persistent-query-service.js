@@ -9,12 +9,14 @@ import {
   setupApiKey,
   buildCliEnv,
   buildWebviewControlledSettingsOverride,
+  loadCodeaideSkillPlugins,
 } from '../../config/api-config.js';
 import { selectWorkingDirectory } from '../../utils/path-utils.js';
 import {
   mapModelIdToSdkName,
   resolveModelFromSettings,
-  setModelEnvironmentVariables
+  setModelEnvironmentVariables,
+  setSubagentModelEnvironmentVariable
 } from '../../utils/model-utils.js';
 import { canUseTool } from '../../permission-handler.js';
 import { buildContentBlocks, loadAttachments } from './attachment-service.js';
@@ -55,11 +57,13 @@ import {
   emitUsageTag,
   processMessageContent,
   processStreamEvent,
+  processSystemMessage,
   processToolResultMessages,
   shouldOutputMessage,
 } from './stream-event-processor.js';
 import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
+import { emit } from '../../protocol/emitter.js';
 
 const SUPPORTED_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -121,8 +125,24 @@ function resolveRequestModelState(modelId, settingsEnv) {
   };
 }
 
-function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId, mcpServers, modelId) {
+/**
+ * Resolve the webview-selected subagent model for this request.
+ * Applies the same settings-env remapping as the main model so a Claude-family
+ * selection follows the provider's configured model names. Returns null when
+ * the request carries no selection ("follow the main model / CLI default").
+ */
+function resolveSubagentModelState(params, settingsEnv) {
+  const raw = typeof params.subagentModel === 'string' ? params.subagentModel.trim() : '';
+  if (!raw) return null;
+  return resolveModelFromSettings(raw, settingsEnv) || raw;
+}
+
+function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId, mcpServers, modelId, subagentModelId) {
   const claudeCliOverride = getClaudeCliPathOverride();
+  // Phase 5c: managed providers no longer sync skills into ~/.claude/settings.json;
+  // enabled skills are passed via the SDK plugins option instead (null for
+  // local/CLI login modes, whose settings.json plugins flow through settingSources).
+  const skillPlugins = loadCodeaideSkillPlugins();
   return {
     cwd: workingDirectory,
     permissionMode,
@@ -130,10 +150,11 @@ function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxTh
     maxTurns: 100,
     enableFileCheckpointing: true,
     env: buildCliEnv(),
-    settings: buildWebviewControlledSettingsOverride(modelId),
+    settings: buildWebviewControlledSettingsOverride(modelId, subagentModelId || ''),
     ...(reasoningEffort && { effort: reasoningEffort }),
     ...(maxThinkingTokens !== undefined && { maxThinkingTokens }),
     ...(streamingEnabled && { includePartialMessages: true }),
+    ...(skillPlugins && { plugins: skillPlugins }),
     additionalDirectories: Array.from(
       new Set(
         [workingDirectory, process.env.IDEA_PROJECT_PATH, process.env.PROJECT_PATH].filter(Boolean)
@@ -203,6 +224,8 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
   const modelId = params.model || null;
   const { sdkModelName, resolvedModelId } = resolveRequestModelState(modelId, settings?.env);
   setModelEnvironmentVariables(resolvedModelId, modelId);
+  const subagentModelId = resolveSubagentModelState(params, settings?.env);
+  setSubagentModelEnvironmentVariable(subagentModelId);
 
   const permissionMode = normalizePermissionMode(params.permissionMode);
   const streamingEnabled = resolveStreamingEnabled(params, settings);
@@ -215,12 +238,12 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
   const options = buildQueryOptions(
     workingDirectory, sdkModelName, permissionMode,
     maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId,
-    mcpServers, modelId
+    mcpServers, modelId, subagentModelId
   );
 
   const userMessage = await buildUserMessage(params, withAttachments, requestedSessionId, resolvedModelId);
 
-  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId);
+  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId, subagentModelId);
   console.log('[LIFECYCLE] buildRequestContext sessionId=' + (requestedSessionId || '(new)')
     + ' epoch=' + (runtimeSessionEpoch || '(none)')
     + ' signature=' + runtimeSignature);
@@ -272,7 +295,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
     // (ensures executeTurn is ready to consume before perpetual reader can push)
     runtime.turnSink = createTurnSink();
 
-    console.log('[MESSAGE_START]');
+    emit('message_start');
     runtime.inputStream.enqueue(requestContext.userMessage);
 
     while (true) {
@@ -297,7 +320,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
       const msg = next.value;
 
       if (turnState.streamingEnabled && !turnState.streamStarted) {
-        process.stdout.write('[STREAM_START]\n');
+        emit('stream_start');
         turnState.streamStarted = true;
       }
 
@@ -309,7 +332,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
 
       // Preserve all existing message processing logic
       if (shouldOutputMessage(msg, turnState)) {
-        console.log('[MESSAGE]', JSON.stringify(msg));
+        emit('message', msg);
       }
 
       processMessageContent(msg, turnState);
@@ -323,9 +346,13 @@ async function executeTurn(runtime, requestContext, turnMeta) {
 
       if (msg?.type === 'system' && msg.session_id) {
         turnState.finalSessionId = msg.session_id;
-        console.log('[SESSION_ID]', msg.session_id);
+        emit('session_id', msg.session_id);
         registerRuntimeSession(runtime, msg.session_id, { registerActiveQueryResult, removeSession });
       }
+
+      // Forward compaction lifecycle signals (system/status 'compacting' and
+      // system/compact_boundary) so the UI can indicate context compression.
+      processSystemMessage(msg);
 
       if (msg?.type === 'result') {
         if (msg.is_error) {
@@ -339,7 +366,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
       // NOTE: Do NOT emit accumulatedUsage at stream end.
       // The assistant message's usage (sent via emitUsageTag above) is the authoritative final value.
       // Emitting accumulatedUsage here would send a redundant or potentially stale value.
-      process.stdout.write('[STREAM_END]\n');
+      emit('stream_end');
       turnState.streamEnded = true;
     }
 
@@ -348,7 +375,7 @@ async function executeTurn(runtime, requestContext, turnMeta) {
       registerRuntimeSession(runtime, finalSessionId, { registerActiveQueryResult, removeSession });
     }
 
-    console.log('[MESSAGE_END]');
+    emit('message_end');
     console.log(JSON.stringify({
       success: true,
       sessionId: finalSessionId
@@ -405,17 +432,11 @@ function emitSendError(runtime, error, requestContext) {
 
   payload.error = truncateString(payload.error, 2500);
 
-  // The error payload is emitted on three channels intentionally:
-  //   1. stderr ([SEND_ERROR] tag) — captured by Java's stderrLines for diagnostics
-  //   2. stdout ([SEND_ERROR] tag) — picked up by ClaudeStreamAdapter to surface
-  //      the error in the chat UI without waiting for the [MESSAGE_END] envelope
-  //   3. stdout (raw JSON) — the canonical request-result line consumed by the
-  //      daemon's request demuxer to complete the active CompletableFuture
-  // Removing any one of these breaks either logging, UX, or request completion.
-  const serialized = JSON.stringify(payload);
-  console.error('[SEND_ERROR]', serialized);
-  console.log('[SEND_ERROR]', serialized);
-  console.log(serialized);
+  // Single structured 'send_error' envelope: picked up by the Java side
+  // (ClaudeStreamAdapter.processEnvelope) to surface the error in the chat UI
+  // and mark the request as failed. Request completion itself is signaled by
+  // the daemon's {id, done} envelope.
+  emit('send_error', payload);
 }
 
 function applyExactModelForContextUsage(requestContext) {
@@ -517,7 +538,7 @@ async function sendInternal(params, withAttachments) {
     const wasAborted = runtime?.abortRequested === true && error?.runtimeTerminated;
 
     if (turnMeta.state?.streamingEnabled && turnMeta.state?.streamStarted && !turnMeta.state?.streamEnded) {
-      process.stdout.write('[STREAM_END]\n');
+      emit('stream_end');
       turnMeta.state.streamEnded = true;
     }
 
@@ -784,7 +805,9 @@ export async function getContextUsagePersistent(params = {}) {
 
     try {
       const data = await runtime.query.getContextUsage();
-      console.log(JSON.stringify({ success: true, data }));
+      // Structured result envelope — consumed by the Java daemon bridge's
+      // getContextUsage callback (DaemonOutputCallback.onEnvelope).
+      emit('result', { success: true, data });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err || 'getContextUsage call failed');
       console.error('[LIFECYCLE] getContextUsage SDK error:', message);

@@ -674,7 +674,7 @@ export default function ProviderDialog({
   "model": "sonnet",
   "alwaysThinkingEnabled": true,
   "ccSwitchProviderId": "default",
-  "codemossProviderId": ""
+  "codeaideProviderId": ""
 }`}
                 />
                 {jsonError && (

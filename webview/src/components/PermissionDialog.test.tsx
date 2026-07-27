@@ -54,7 +54,7 @@ describe('PermissionDialog', () => {
         command: [
           'Read src/components/App.tsx',
           '',
-          'Inspect com.github.claudecodegui.handler.file.OpenFileHandler',
+          'Inspect com.codeaide.handler.file.OpenFileHandler',
           '',
           'Reference https://example.com/docs',
         ].join('\n'),
@@ -74,7 +74,7 @@ describe('PermissionDialog', () => {
     expect(screen.getByRole('link', { name: 'src/components/App.tsx' })).toBeTruthy();
     expect(
       screen.getByRole('link', {
-        name: 'com.github.claudecodegui.handler.file.OpenFileHandler',
+        name: 'com.codeaide.handler.file.OpenFileHandler',
       }),
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'https://example.com/docs' })).toBeTruthy();

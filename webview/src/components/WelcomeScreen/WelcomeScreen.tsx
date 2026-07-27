@@ -25,6 +25,8 @@ export interface WelcomeScreenProps {
   t: TFunction;
   onProviderChange: (provider: string) => void;
   onVersionClick?: () => void;
+  /** Show an unread-update red dot on the version tag. */
+  showVersionBadge?: boolean;
 }
 
 export const WelcomeScreen = memo(function WelcomeScreen({
@@ -33,6 +35,7 @@ export const WelcomeScreen = memo(function WelcomeScreen({
   t,
   onProviderChange,
   onVersionClick,
+  showVersionBadge = false,
 }: WelcomeScreenProps): React.ReactElement {
   const providerLabels: Record<string, string> = {
     claude: t('providers.claude.label'),
@@ -54,6 +57,7 @@ export const WelcomeScreen = memo(function WelcomeScreen({
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onVersionClick?.(); }}
         >
           v{APP_VERSION}
+          {showVersionBadge && <span className="version-badge-dot" aria-hidden="true" />}
         </span>
       </div>
       <div>

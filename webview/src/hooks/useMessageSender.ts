@@ -3,11 +3,18 @@ import type { TFunction } from 'i18next';
 import { sendBridgeEvent } from '../utils/bridge';
 import type { ClaudeContentBlock, ClaudeMessage } from '../types';
 import {
-  EFFORT_SUPPORTED_CLAUDE_MODELS,
   apply1MContextSuffix,
 } from '../components/ChatInputBox/types';
 import type { Attachment, ChatInputBoxHandle, PermissionMode, ReasoningEffort, SelectedAgent, CodexFastMode } from '../components/ChatInputBox/types';
 import type { ViewMode } from './useModelProviderState';
+import {
+  getProviderCapabilities,
+  providerDisplayName,
+  sanitizePermissionMode,
+  supportsPlanMode,
+  supportsReasoningEffort,
+  supportsSubagentModel,
+} from '../utils/providerCapabilities';
 
 /**
  * Command sets for local handling (shared with App.tsx to avoid duplication)
@@ -27,13 +34,6 @@ function createContextUsageRequestId(): string {
   return `context-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function shouldSendReasoningEffort(provider: string, model: string): boolean {
-  if (provider !== 'claude') {
-    return true;
-  }
-  return EFFORT_SUPPORTED_CLAUDE_MODELS.has(model);
-}
-
 export interface UseMessageSenderOptions {
   t: TFunction;
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -43,6 +43,8 @@ export interface UseMessageSenderOptions {
   reasoningEffort: ReasoningEffort;
   codexFastMode: CodexFastMode;
   selectedAgent: SelectedAgent | null;
+  /** Claude-only subagent model override; ''/undefined = follow the main model. */
+  selectedSubagentModel?: string;
   sdkStatusLoaded: boolean;
   currentSdkInstalled: boolean;
   sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
@@ -76,6 +78,7 @@ export function useMessageSender({
   reasoningEffort,
   codexFastMode,
   selectedAgent,
+  selectedSubagentModel,
   sdkStatusLoaded,
   currentSdkInstalled,
   sentAttachmentsRef,
@@ -124,8 +127,8 @@ export function useMessageSender({
       return true;
     }
 
-    // /plan - switch to plan mode (Claude only; Codex sends as normal text)
-    if (PLAN_COMMANDS.has(command) && currentProvider === 'claude') {
+    // /plan - switch to plan mode (only for providers with plan mode; others send as normal text)
+    if (PLAN_COMMANDS.has(command) && supportsPlanMode(currentProvider)) {
       if (handleModeSelect) {
         handleModeSelect('plan');
         addToast(t('chat.planModeEnabled', { defaultValue: 'Plan mode enabled' }), 'info');
@@ -138,13 +141,14 @@ export function useMessageSender({
 
   /**
    * Check for context usage command (/context)
-   * Only available for Claude provider. Opens a dialog to display context window usage.
+   * Only available for providers with context-usage support. Opens a dialog to
+   * display context window usage.
    */
   const checkContextCommand = useCallback((text: string): boolean => {
     if (!text.startsWith('/')) return false;
     const command = text.split(WHITESPACE_REGEX)[0].toLowerCase();
     if (CONTEXT_COMMANDS.has(command)) {
-      if (currentProvider !== 'claude') {
+      if (!getProviderCapabilities(currentProvider).supportsContextUsage) {
         addToast(t('chat.commandProviderOnly', {
           command,
           provider: 'Claude',
@@ -254,17 +258,23 @@ export function useMessageSender({
     requestedPermissionMode: PermissionMode
   ) => {
     const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-    const effectivePermissionMode: PermissionMode = currentProvider === 'codex' && requestedPermissionMode === 'plan'
-      ? 'default'
-      : requestedPermissionMode;
+    const effectivePermissionMode = sanitizePermissionMode(currentProvider, requestedPermissionMode);
     console.debug('[ModeSync][Frontend] send request mode', {
       provider: currentProvider,
       requestedMode: requestedPermissionMode,
       effectiveMode: effectivePermissionMode,
     });
 
-    const reasoningEffortPayload = shouldSendReasoningEffort(currentProvider, selectedModel)
+    const reasoningEffortPayload = supportsReasoningEffort(currentProvider, selectedModel)
       ? { reasoningEffort }
+      : {};
+
+    // Subagent model override is Claude-only and only sent when the user made
+    // an explicit selection; otherwise the key stays absent so the backend
+    // clears any stale CLAUDE_CODE_SUBAGENT_MODEL (follow main model/CLI default).
+    const trimmedSubagentModel = selectedSubagentModel?.trim() ?? '';
+    const subagentModelPayload = supportsSubagentModel(currentProvider) && trimmedSubagentModel
+      ? { subagentModel: trimmedSubagentModel }
       : {};
 
     if (hasAttachments) {
@@ -280,6 +290,7 @@ export function useMessageSender({
           fileTags: fileTagsInfo,
           permissionMode: effectivePermissionMode,
           ...reasoningEffortPayload,
+          ...subagentModelPayload,
           codexFastMode,
         });
         sendBridgeEvent('send_message_with_attachments', payload);
@@ -291,6 +302,7 @@ export function useMessageSender({
           fileTags: fileTagsInfo,
           permissionMode: effectivePermissionMode,
           ...reasoningEffortPayload,
+          ...subagentModelPayload,
           codexFastMode,
         });
         sendBridgeEvent('send_message', fallbackPayload);
@@ -302,11 +314,12 @@ export function useMessageSender({
         fileTags: fileTagsInfo,
         permissionMode: effectivePermissionMode,
         ...reasoningEffortPayload,
+        ...subagentModelPayload,
         codexFastMode,
       });
       sendBridgeEvent('send_message', payload);
     }
-  }, [codexFastMode, currentProvider, selectedModel, reasoningEffort]);
+  }, [codexFastMode, currentProvider, selectedModel, selectedSubagentModel, reasoningEffort]);
 
   /**
    * Execute message sending (from queue or directly)
@@ -324,7 +337,7 @@ export function useMessageSender({
     }
     if (!currentSdkInstalled) {
       addToast(
-        t('chat.sdkNotInstalled', { provider: currentProvider === 'codex' ? 'Codex' : 'Claude Code' }) + ' ' + t('chat.goInstallSdk'),
+        t('chat.sdkNotInstalled', { provider: providerDisplayName(currentProvider) }) + ' ' + t('chat.goInstallSdk'),
         'warning'
       );
       setSettingsInitialTab('dependencies');

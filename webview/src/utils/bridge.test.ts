@@ -8,6 +8,9 @@ import {
   undoFileChanges,
 } from './bridge';
 
+/** Expected wire format: a JSON envelope {type, payload} (payload omitted when undefined). */
+const envelope = (type: string, payload?: unknown) => JSON.stringify({ type, payload });
+
 describe('bridge navigation helpers', () => {
   beforeEach(() => {
     window.sendToJava = vi.fn();
@@ -18,26 +21,26 @@ describe('bridge navigation helpers', () => {
     openFile('/Users/demo/%C3%BCber.txt');
     openFile('file:///Users/demo/my%20file.ts');
 
-    expect(window.sendToJava).toHaveBeenNthCalledWith(1, 'open_file:/Users/demo/my file.ts');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(2, 'open_file:/Users/demo/über.txt');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(3, 'open_file:/Users/demo/my file.ts');
+    expect(window.sendToJava).toHaveBeenNthCalledWith(1, envelope('open_file', '/Users/demo/my file.ts'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(2, envelope('open_file', '/Users/demo/über.txt'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(3, envelope('open_file', '/Users/demo/my file.ts'));
   });
 
   it('parses line numbers from normalized navigation paths', () => {
     openFile('/Users/demo/my%20file.ts:42');
 
-    expect(window.sendToJava).toHaveBeenCalledWith('open_file:/Users/demo/my file.ts:42');
+    expect(window.sendToJava).toHaveBeenCalledWith(envelope('open_file', '/Users/demo/my file.ts:42'));
   });
 
   it('allows relative navigation paths for openFile', () => {
     openFile('../shared/utils.ts');
-    expect(window.sendToJava).toHaveBeenCalledWith('open_file:../shared/utils.ts');
+    expect(window.sendToJava).toHaveBeenCalledWith(envelope('open_file', '../shared/utils.ts'));
   });
 
   it('sends openClass for valid Java FQCN values', () => {
-    openClass('com.github.claudecodegui.handler.file.OpenFileHandler');
+    openClass('com.codeaide.handler.file.OpenFileHandler');
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'open_class:com.github.claudecodegui.handler.file.OpenFileHandler',
+      envelope('open_class', 'com.codeaide.handler.file.OpenFileHandler'),
     );
   });
 
@@ -47,8 +50,8 @@ describe('bridge navigation helpers', () => {
     openClass('org.junit.jupiter.api');
     openClass('com.github.foo.Bar.baz()');
 
-    expect(window.sendToJava).toHaveBeenNthCalledWith(1, 'open_class:com.github.foo.BarService');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(2, 'open_class:com.github.foo.Outer.Inner');
+    expect(window.sendToJava).toHaveBeenNthCalledWith(1, envelope('open_class', 'com.github.foo.BarService'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(2, envelope('open_class', 'com.github.foo.Outer.Inner'));
     expect(window.sendToJava).toHaveBeenCalledTimes(2);
   });
 
@@ -70,9 +73,9 @@ describe('bridge navigation helpers', () => {
     openBrowser('http://example.com');
     openBrowser('mailto:test@example.com');
 
-    expect(window.sendToJava).toHaveBeenNthCalledWith(1, 'open_browser:https://example.com/docs');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(2, 'open_browser:http://example.com');
-    expect(window.sendToJava).toHaveBeenNthCalledWith(3, 'open_browser:mailto:test@example.com');
+    expect(window.sendToJava).toHaveBeenNthCalledWith(1, envelope('open_browser', 'https://example.com/docs'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(2, envelope('open_browser', 'http://example.com'));
+    expect(window.sendToJava).toHaveBeenNthCalledWith(3, envelope('open_browser', 'mailto:test@example.com'));
   });
 
   it('rejects file: and javascript: protocols in openBrowser', () => {

@@ -89,6 +89,7 @@ export interface ChatScreenProps {
   claudeSettingsAlwaysThinkingEnabled: ProviderState['claudeSettingsAlwaysThinkingEnabled'];
   reasoningEffort: ProviderState['reasoningEffort'];
   codexFastMode: ProviderState['codexFastMode'];
+  selectedSubagentModel: ProviderState['selectedSubagentModel'];
   streamingEnabledSetting: ProviderState['streamingEnabledSetting'];
   sendShortcut: ProviderState['sendShortcut'];
   autoOpenFileEnabled: ProviderState['autoOpenFileEnabled'];
@@ -103,6 +104,7 @@ export interface ChatScreenProps {
   onAgentSelect: ProviderState['handleAgentSelect'];
   onReasoningChange: ProviderState['handleReasoningChange'];
   onCodexFastModeChange: ProviderState['handleCodexFastModeChange'];
+  onSubagentModelSelect: ProviderState['handleSubagentModelSelect'];
   onToggleThinking: ProviderState['handleToggleThinking'];
   onStreamingEnabledChange: ProviderState['handleStreamingEnabledChange'];
   onAutoOpenFileEnabledChange: ProviderState['handleAutoOpenFileEnabledChange'];
@@ -137,13 +139,14 @@ export const ChatScreen = ({
   activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
   reasoningEffort, codexFastMode, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
   longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens,
+  selectedSubagentModel,
   onModeSelect, onModelSelect, onAgentSelect, onReasoningChange, onCodexFastModeChange, onToggleThinking,
   onStreamingEnabledChange,
-  onAutoOpenFileEnabledChange, onLongContextChange,
+  onAutoOpenFileEnabledChange, onLongContextChange, onSubagentModelSelect,
   messageQueue, onRemoveFromQueue,
 }: ChatScreenProps) => {
   const { t } = useTranslation();
-  const { messages, loading, isThinking, streamingActive, loadingStartTime, subagentHistories } = useMessages();
+  const { messages, loading, isThinking, streamingActive, loadingStartTime, subagentHistories, streamingHint } = useMessages();
   const { currentSessionId } = useSession();
   const {
     setSettingsInitialTab, setCurrentView,
@@ -152,6 +155,7 @@ export const ChatScreen = ({
     addToast,
     draftInput, setDraftInput,
     openChangelogDialog,
+    hasUnreadChangelog,
     searchOpen, setSearchOpen,
   } = useUIState();
 
@@ -225,6 +229,7 @@ export const ChatScreen = ({
               t={t}
               onProviderChange={onProviderSelect}
               onVersionClick={openChangelogDialog}
+              showVersionBadge={hasUnreadChangelog}
             />
           )}
 
@@ -238,6 +243,7 @@ export const ChatScreen = ({
                   isThinking={isThinking}
                   loading={loading}
                   loadingStartTime={loadingStartTime}
+                  streamingHint={streamingHint}
                   t={t}
                   getMessageText={getMessageText}
                   getContentBlocks={getContentBlocks}
@@ -306,6 +312,8 @@ export const ChatScreen = ({
           onReasoningChange={onReasoningChange}
           codexFastMode={codexFastMode}
           onCodexFastModeChange={onCodexFastModeChange}
+          subagentModel={selectedSubagentModel}
+          onSubagentModelSelect={onSubagentModelSelect}
           onToggleThinking={onToggleThinking}
           streamingEnabled={streamingEnabledSetting}
           onStreamingEnabledChange={onStreamingEnabledChange}

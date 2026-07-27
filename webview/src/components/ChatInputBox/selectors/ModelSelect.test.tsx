@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ModelSelect } from './ModelSelect';
 import { CLAUDE_MODELS, CODEX_MODELS } from '../types';
@@ -96,5 +96,39 @@ describe('ModelSelect', () => {
       'gpt-5.2',
       'gpt-5.1-codex-mini',
     ]);
+  });
+
+  it('传入 onRefreshModels 时下拉应展示刷新入口并回调', () => {
+    const onRefreshModels = vi.fn();
+    render(
+      <ModelSelect
+        value={sonnetModel.id}
+        onChange={vi.fn()}
+        models={[sonnetModel]}
+        currentProvider="claude"
+        onRefreshModels={onRefreshModels}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+    const refreshOption = screen.getByTestId('model-refresh-option');
+    expect(refreshOption.textContent).toContain('models.refreshList');
+
+    fireEvent.click(refreshOption);
+    expect(onRefreshModels).toHaveBeenCalledTimes(1);
+  });
+
+  it('未传 onRefreshModels 时不展示刷新入口', () => {
+    render(
+      <ModelSelect
+        value={sonnetModel.id}
+        onChange={vi.fn()}
+        models={[sonnetModel]}
+        currentProvider="claude"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.queryByTestId('model-refresh-option')).toBeNull();
   });
 });

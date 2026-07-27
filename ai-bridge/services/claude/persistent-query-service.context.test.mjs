@@ -85,6 +85,9 @@ test('buildRequestContext preserves resolved model mapping for context usage run
         CLAUDE_CODE_EFFORT_LEVEL: '',
         MAX_THINKING_TOKENS: '',
         CLAUDE_CODE_DISABLE_1M_CONTEXT: '1',
+        // The send path always owns the subagent-model var: no selection in
+        // this request means an explicit empty-string neutralizer.
+        CLAUDE_CODE_SUBAGENT_MODEL: '',
       },
     });
     assert.equal(process.env.ANTHROPIC_MODEL, 'custom-sonnet-model');

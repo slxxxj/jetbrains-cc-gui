@@ -618,6 +618,10 @@ export interface ChatInputBoxProps {
   codexFastMode?: CodexFastMode;
   /** Switch Codex speed mode callback */
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  /** Claude-only subagent model override ('' = follow the main model) */
+  subagentModel?: string;
+  /** Switch subagent model callback ('' = default) */
+  onSubagentModelSelect?: (modelId: string) => void;
   /** Toggle thinking mode */
   onToggleThinking?: (enabled: boolean) => void;
   /** Whether streaming is enabled */
@@ -697,6 +701,8 @@ export interface ButtonAreaProps {
   reasoningEffort?: ReasoningEffort;
   /** Codex speed mode */
   codexFastMode?: CodexFastMode;
+  /** Claude-only subagent model override ('' = follow the main model) */
+  subagentModel?: string;
 
   // Event callbacks
   onSubmit?: () => void;
@@ -708,6 +714,8 @@ export interface ButtonAreaProps {
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Switch Codex speed mode callback */
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  /** Switch subagent model callback ('' = default) */
+  onSubagentModelSelect?: (modelId: string) => void;
   /** Enhance prompt callback */
   onEnhancePrompt?: () => void;
   /** Whether always thinking enabled */

@@ -136,6 +136,31 @@ export function setModelEnvironmentVariables(modelId, baseModelId) {
 }
 
 /**
+ * Set (or clear) the subagent model override for the current request.
+ *
+ * CLAUDE_CODE_SUBAGENT_MODEL is webview-owned per request (it is listed in
+ * MODEL_ROUTING_ENV_VARS / WEBVIEW_CONTROLLED_ENV_VARS), so every request must
+ * either write its selection here or actively clear the variable — otherwise a
+ * value set by an earlier turn would leak into this one inside the long-lived
+ * daemon process. Like setModelEnvironmentVariables(), this mutates
+ * process.env; the value reaches the CLI subprocess through buildCliEnv() at
+ * runtime spawn time.
+ *
+ * @param {string} [subagentModel] - Resolved subagent model name. Empty/blank/
+ *                                   null means "no override" (follow the main
+ *                                   model / CLI default) and clears the var.
+ */
+export function setSubagentModelEnvironmentVariable(subagentModel) {
+  const value = typeof subagentModel === 'string' ? subagentModel.trim() : '';
+  if (value) {
+    process.env.CLAUDE_CODE_SUBAGENT_MODEL = value;
+    console.log('[MODEL_ENV] Set CLAUDE_CODE_SUBAGENT_MODEL =', value);
+  } else {
+    delete process.env.CLAUDE_CODE_SUBAGENT_MODEL;
+  }
+}
+
+/**
  * Determine whether the model natively supports Anthropic vision content blocks.
  *
  * Different models have different vision input capabilities:

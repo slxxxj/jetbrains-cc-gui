@@ -143,8 +143,8 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Add **Claude Code CLI path override**: new setting in Settings → Environment to point the plugin at a specific \`claude\` binary (by @senfix)
 - Add separate **Code Font** setting (Settings → Basic → Appearance), independent from the UI font: code blocks and Bash output use the code font; chat text follows the IDEA UI font (by @Luna5ama, closes #1240)
 - Add **Codex subscription quota panel** in the model selector showing ChatGPT Plus/Pro quota status with dual-source fetching and snapshot caching (by @Luna5ama)
-- Add **Shift+Esc** shortcut to hide the CCG tool window panel (by @Cyber0xFE)
-- **Ctrl+Alt+K** now always opens the CCG panel regardless of editor selection; auto-focuses the input field (by @Cyber0xFE)
+- Add **Shift+Esc** shortcut to hide the CodeAide tool window panel (by @Cyber0xFE)
+- **Ctrl+Alt+K** now always opens the CodeAide panel regardless of editor selection; auto-focuses the input field (by @Cyber0xFE)
 - Add **per-message token indicator** at the bottom of each turn showing whole-turn aggregated token count (by @suzhelan, @zkpaiminmin)
 - Add **SDK → CLI session conversion**: SDK-created sessions can be converted to CLI sessions to appear in \`/resume\` list; shown as entrypoint badges in history (by @gadfly3173)
 - Add **Claude Fable 5** model support with Mythos-class capabilities ($10/$50 per 1M tokens) (by @zkpaiminmin)
@@ -172,8 +172,8 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - 新增 **Claude Code CLI 路径覆盖**：设置 → 环境中可指定自定义 \`claude\` 可执行文件路径（by @senfix）
 - 设置 → 基础 → 外观新增独立**代码字体**配置：代码块与 Bash 输出使用代码字体，聊天文本跟随 IDEA UI 字体（by @Luna5ama，关闭 #1240）
 - 新增 **Codex 订阅配额面板**：在模型选择器中显示 ChatGPT Plus/Pro 配额，双来源拉取，快照缓存（by @Luna5ama）
-- 新增 **Shift+Esc** 快捷键隐藏 CCG 工具窗口面板（by @Cyber0xFE）
-- **Ctrl+Alt+K** 无论是否有代码选择均可打开 CCG 面板，激活时自动聚焦输入框（by @Cyber0xFE）
+- 新增 **Shift+Esc** 快捷键隐藏 CodeAide 工具窗口面板（by @Cyber0xFE）
+- **Ctrl+Alt+K** 无论是否有代码选择均可打开 CodeAide 面板，激活时自动聚焦输入框（by @Cyber0xFE）
 - 每条消息底部新增**逐轮 Token 消耗指示器**（by @suzhelan，@zkpaiminmin）
 - 新增 **SDK 会话转换为 CLI 会话**：SDK 创建的会话可转换以出现在 \`/resume\` 列表，历史列表显示入口徽章（by @gadfly3173）
 - 新增 **Claude Fable 5** 模型（Mythos 级，输入 $10/1M，输出 $50/1M）（by @zkpaiminmin）
@@ -371,7 +371,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 
 🔧 Improvements
 - Replace single-element array concurrency workaround with AtomicBoolean/AtomicReference throughout the SDK bridge layer
-- Unify all editor action icons to use cc-gui-icon for a consistent visual identity
+- Unify all editor action icons to use codeaide-icon for a consistent visual identity
 - Improve attachment handling and model resolution in ai-bridge with vision model detection
 - Extract loadMcpServersConfigAsRecord helper to prevent empty MCP config from leaking into SDK options
 - Remove brand icon from task completion toast for a simpler, lighter notification layout
@@ -416,7 +416,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 
 🔧 Improvements
 - 将 SDK Bridge 层中的单元素数组并发变通方案替换为 AtomicBoolean/AtomicReference
-- 统一所有编辑器操作图标为 cc-gui-icon，提供一致的视觉标识
+- 统一所有编辑器操作图标为 codeaide-icon，提供一致的视觉标识
 - 改进 ai-bridge 中的附件处理和模型解析逻辑，新增视觉模型检测
 - 提取 loadMcpServersConfigAsRecord 工具函数，避免空 MCP 配置被错误传入 SDK 选项
 - 移除任务完成 Toast 中的品牌图标，布局更简洁轻量
@@ -500,7 +500,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
     content: {
       en: `✨ Features
 - Add console and Terminal selection sending: send selected Run/Debug console text or Terminal text directly into the chat input, with IntelliJ 2024.3+ terminal compatibility and localized action labels
-- Add editor tab file-path sending: quickly send the current editor tab path to CC GUI from tab actions
+- Add editor tab file-path sending: quickly send the current editor tab path to CodeAide from tab actions
 - Add UI font configuration: configure chat/webview font family and size from settings, with IDE font fallback and persisted appearance preferences
 - Improve history browsing: add session ID copy controls, file size display, and lite-read / mtime-driven incremental scanning for faster Claude and Codex session loading
 - Update model options: add GPT-5.5 support, restore GPT-5.2 as a selectable option, and refine search-style tool expansion affordances
@@ -522,7 +522,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Refresh related i18n strings across supported locales for new actions, settings, history labels, and model/provider UI copy`,
       zh: `✨ Features
 - 新增控制台与 Terminal 选中文本发送能力：可将 Run/Debug 控制台或 Terminal 中的选中文本直接发送到聊天输入框，并兼容 IntelliJ 2024.3+ 新版 Terminal，同时补齐本地化动作文案
-- 新增编辑器标签页发送文件路径动作：可从标签页操作中快速把当前文件路径发送到 CC GUI
+- 新增编辑器标签页发送文件路径动作：可从标签页操作中快速把当前文件路径发送到 CodeAide
 - 新增 UI 字体配置：支持在设置中配置聊天/webview 字体族与字号，自动回退 IDE 字体并持久化外观偏好
 - 优化历史记录浏览：新增会话 ID 复制、文件大小展示，以及基于 lite-read 和 mtime 的增量扫描，加快 Claude 与 Codex 会话加载
 - 更新模型选项：新增 GPT-5.5 支持，恢复 GPT-5.2 可选项，并优化搜索类工具的展开视觉表现
@@ -703,8 +703,8 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 🔧 Improvements
 - Add unit tests for StreamDeltaThrottler, DaemonBridge, and MessageJsonConverter
 - Remove unused CursorHandler
-- Update action icons with unified cc-gui-icon.svg; redesign cc-gui-icon.svg
-- Rename "Send to CCG" to "Send File Path to CC GUI" across all 9 languages; rename CCG → CC GUI in all i18n strings`,
+- Update action icons with unified codeaide-icon.svg; redesign codeaide-icon.svg
+- Rename "Send to CodeAide" to "Send File Path to CodeAide" across all 9 languages; rename CodeAide → CodeAide in all i18n strings`,
       zh: `✨ Features
 - 新增 Provider 运行时状态检测：引入 getClaudeRuntimeState() 判断访问模式（managed/local/cli_login/inactive），仅在 local 和 cli_login 模式下注入代理/TLS 环境变量，每次 setupApiKey() 调用时清除注入变量防止泄漏
 - 重命名 ANTHROPIC_DEFAULT_HAIKU_MODEL → ANTHROPIC_SMALL_FAST_MODEL，覆盖 Provider 预设、ProviderDialog、类型和模型状态 hooks；保留旧 key 兼容性
@@ -722,8 +722,8 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 🔧 Improvements
 - 新增 StreamDeltaThrottler、DaemonBridge、MessageJsonConverter 单元测试
 - 移除未使用的 CursorHandler
-- 统一使用新版 cc-gui-icon.svg 更新操作图标；重新设计图标视觉风格
-- 将"Send to CCG"重命名为"Send File Path to CC GUI"，9 种语言全部更新；将 i18n 字符串中 CCG 统一重命名为 CC GUI`,
+- 统一使用新版 codeaide-icon.svg 更新操作图标；重新设计图标视觉风格
+- 将"Send to CodeAide"重命名为"Send File Path to CodeAide"，9 种语言全部更新；将 i18n 字符串中 CodeAide 统一重命名为 CodeAide`,
     },
   },
   {
@@ -751,7 +751,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Normalize model resolution: keep canonical model ID in Java, add env config normalization helpers with tests
 - Extract CursorHandler and throttle mousemove with requestAnimationFrame
 - Translate Chinese comments and JSDoc to English across 14 files
-- Rename plugin ID and project name to idea-claude-code-gui`,
+- Rename plugin ID and project name to codeaide`,
       zh: `✨ Features
 - 新增 CLI Login Provider：通过 Claude SDK 原生 OAuth 认证，ProviderList 显示账户信息及授权/撤销对话框，更新 9 种语言 i18n
 - 新增 Provider 停用支持：切换本地 Provider 时显示确认对话框，将 Provider 信息集成至 ProviderList 简化设置界面
@@ -773,7 +773,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - 规范化模型解析和环境变量配置，新增辅助函数和单元测试
 - 提取 CursorHandler，使用 requestAnimationFrame 节流 mousemove 监听
 - 将 14 个文件中文注释和 JSDoc 统一翻译为英文
-- 重命名插件 ID 和项目名称为 idea-claude-code-gui`,
+- 重命名插件 ID 和项目名称为 codeaide`,
     },
   },
   {
@@ -815,7 +815,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
     date: '2026-03-15',
     content: {
       en: `✨ Features
-- Rename project to CC GUI (originally Claude Code GUI) to mitigate trademark risks
+- Rename project to CodeAide (originally CodeAide) to mitigate trademark risks
 - Change default Codex sandbox mode to danger-full-access for broader permissions
 - Add GitHub repository section to community settings with copy-to-clipboard URL
 - Default autoOpenFile to disabled
@@ -836,7 +836,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Refactor FileHandler, HistoryHandler, ClaudeHistoryReader, App.tsx into focused modules (major size reduction)
 - Extract Claude model mapping to utility module with tests (#639) #JackCmd233`,
       zh: `✨ Features
-- 项目重命名为 CC GUI（原 Claude Code GUI），规避商标风险
+- 项目重命名为 CodeAide（原 CodeAide），规避商标风险
 - Codex 默认沙箱模式改为 danger-full-access，减少权限使用阻力
 - 社区设置页新增 GitHub 开源地址，支持一键复制
 - autoOpenFile 默认值改为关闭
@@ -1510,7 +1510,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
     content: {
       en: `✨ Features
 - Add input history recording with Tab key completion and configurable settings toggle
-- Add persistent storage for input history in ~/.codemoss/inputHistory.json with management UI in settings
+- Add persistent storage for input history in ~/.codeaide/inputHistory.json with management UI in settings
 - Add interactive Diff view with Apply/Reject buttons and state persistence across sessions
 - Add local handling for new session commands (/clear, /new, /reset) to bypass confirmation dialog
 - Add disk cache for slash commands with 7-day TTL and preload on component mount
@@ -1534,7 +1534,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Add comprehensive i18n support for history management and diff operations`,
       zh: `✨ Features
 - 新增输入历史记录功能，支持 Tab 键补全，可在设置中自由开关
-- 新增输入历史持久化存储（~/.codemoss/inputHistory.json），设置页面支持历史管理 UI
+- 新增输入历史持久化存储（~/.codeaide/inputHistory.json），设置页面支持历史管理 UI
 - 新增交互式 Diff 视图，支持 Apply/Reject 按钮和跨会话状态持久化
 - 新增本地会话命令处理（/clear、/new、/reset），跳过确认对话框直接创建新会话
 - 新增斜杠命令磁盘缓存（7天 TTL），组件挂载时预加载
@@ -1796,7 +1796,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Add permission isolation per IDE session
 - Filter @ file search results with .gitignore rules
 - Add mermaid diagram rendering support
-- Add send file path to CCG from project tree context menu
+- Add send file path to CodeAide from project tree context menu
 - Add sponsor section to settings with i18n support
 - Fix Codex usage updates from result messages
 - Fix: remove redundance in terminal output
@@ -1813,7 +1813,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - 实现每个 IDE 会话的权限隔离
 - 根据 .gitignore 规则过滤 @ 文件搜索结果
 - 添加 mermaid 图表渲染支持
-- 添加从项目树右键菜单发送文件路径到 CCG 功能
+- 添加从项目树右键菜单发送文件路径到 CodeAide 功能
 - 在设置中添加赞助商部分（支持国际化）
 - 修复 Codex 使用量统计更新问题
 - 修复终端输出中的冗余内容
@@ -1940,7 +1940,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - Fix Windows package aiBridge issue
 - Fix SDK process error display
 - Fix Quick Fix timing and Settings streaming state synchronization issues
-- Rename "Quick Fix with Claude" to "Ask Claude Code GUI" with i18n support (8 languages)`,
+- Rename "Quick Fix with Claude" to "Ask CodeAide" with i18n support (8 languages)`,
       zh: `- 实现标签页管理（多开AI功能），添加"新建标签页"按钮
 - 实现Quick Fix功能与Claude集成（右键上下文菜单）
 - 添加npm权限问题检测和自动修复机制，支持重试
@@ -1951,7 +1951,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
 - 修复Windows打包aiBridge问题
 - 修复SDK进程错误显示问题
 - 修复Quick Fix时序和Settings流式状态同步问题
-- 将"Quick Fix with Claude"重命名为"Ask Claude Code GUI"，支持8种语言国际化`,
+- 将"Quick Fix with Claude"重命名为"Ask CodeAide"，支持8种语言国际化`,
     },
   },
   {

@@ -20,6 +20,7 @@ function makeOptions(overrides: Partial<UseModelStatePersistenceOptions> = {}): 
     setLongContextEnabled: vi.fn(),
     setReasoningEffort: vi.fn(),
     setCodexFastMode: vi.fn(),
+    setSelectedSubagentModel: vi.fn(),
     currentProvider: 'claude',
     selectedClaudeModel: 'claude-sonnet-4-5',
     selectedCodexModel: 'gpt-5-codex',
@@ -28,6 +29,7 @@ function makeOptions(overrides: Partial<UseModelStatePersistenceOptions> = {}): 
     longContextEnabled: false,
     reasoningEffort: 'medium',
     codexFastMode: 'normal',
+    selectedSubagentModel: '',
     ...overrides,
   };
 }
@@ -94,5 +96,29 @@ describe('useModelStatePersistence — boot sync does not clobber the persisted 
 
     expect(bridgeEventsFor('set_provider')).toHaveLength(1);
     expect(bridgeEventsFor('set_mode')).toHaveLength(0);
+  });
+
+  it('hydrates the persisted subagent model and saves it back into the snapshot', () => {
+    const setSelectedSubagentModel = vi.fn();
+    localStorage.setItem('model-selection-state', JSON.stringify({
+      provider: 'claude',
+      claudeSubagentModel: 'claude-haiku-4-5',
+    }));
+
+    renderHook(() => useModelStatePersistence(makeOptions({ setSelectedSubagentModel })));
+
+    // Hydration restores the saved selection verbatim (unknown ids tolerated).
+    expect(setSelectedSubagentModel).toHaveBeenCalledWith('claude-haiku-4-5');
+
+    // The save effect snapshots the current value under claudeSubagentModel.
+    const saved = JSON.parse(localStorage.getItem('model-selection-state') ?? '{}');
+    expect(saved.claudeSubagentModel).toBe('');
+  });
+
+  it('saves a changed subagent model selection into the snapshot', () => {
+    renderHook(() => useModelStatePersistence(makeOptions({ selectedSubagentModel: 'glm-4.7-flash' })));
+
+    const saved = JSON.parse(localStorage.getItem('model-selection-state') ?? '{}');
+    expect(saved.claudeSubagentModel).toBe('glm-4.7-flash');
   });
 });

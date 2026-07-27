@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { SPECIAL_PROVIDER_IDS, type CodexProviderConfig, type ProviderConfig } from '../../../types/provider';
 import { sendBridgeEvent } from '../../../utils/bridge';
 import {
+  getProviderCapabilities,
+  isKnownProvider,
+  type ProviderKind,
+} from '../../../utils/providerCapabilities';
+import {
   subscribeActiveCodexProvider,
   subscribeActiveProvider,
   subscribeCodexProviderList,
@@ -24,10 +29,6 @@ interface RuntimeProviderSelectProps {
 }
 
 type RuntimeProvider = ProviderConfig | CodexProviderConfig;
-
-type ProviderKind = 'claude' | 'codex';
-
-const isProviderKind = (provider: string): provider is ProviderKind => provider === 'claude' || provider === 'codex';
 
 const parseProviderList = (json: string): RuntimeProvider[] => {
   const parsed = JSON.parse(json);
@@ -55,7 +56,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     minWidth: embedded ? 260 : 200,
   });
 
-  const providerKind: ProviderKind = currentProvider === 'codex' ? 'codex' : 'claude';
+  const providerKind: ProviderKind = isKnownProvider(currentProvider) ? currentProvider : 'claude';
   const visibleProviders = providersByKind[providerKind];
   const activeProvider = useMemo(
     () => visibleProviders.find((provider) => provider.isActive),
@@ -84,12 +85,12 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
 
   const requestProviders = useCallback((kind: ProviderKind) => {
     setLoading(true);
-    sendBridgeEvent(kind === 'codex' ? 'get_codex_providers' : 'get_providers');
+    sendBridgeEvent(getProviderCapabilities(kind).runtimeProviderEvents.listEvent);
   }, []);
 
   const handleToggle = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!isProviderKind(currentProvider)) {
+    if (!isKnownProvider(currentProvider)) {
       return;
     }
     const nextOpen = !isOpen;
@@ -101,7 +102,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   }, [currentProvider, isOpen, providerKind, recalculate, requestProviders]);
 
   const handleSelect = useCallback((provider: RuntimeProvider) => {
-    const eventName = providerKind === 'codex' ? 'switch_codex_provider' : 'switch_provider';
+    const eventName = getProviderCapabilities(providerKind).runtimeProviderEvents.switchEvent;
     sendBridgeEvent(eventName, JSON.stringify({ id: provider.id }));
     onProviderSwitched?.(getProviderDisplayName(provider, providerKind));
     setProvidersByKind((previous) => ({
@@ -217,7 +218,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     recalculate();
   }, [embedded, isOpen, recalculate, visibleProviders.length, loading]);
 
-  if (!isProviderKind(currentProvider)) {
+  if (!isKnownProvider(currentProvider)) {
     return null;
   }
 

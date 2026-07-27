@@ -5,6 +5,8 @@
  * vendor key that can be used to select the appropriate icon from @lobehub/icons.
  */
 
+import { getProviderCapabilities, isKnownProvider } from './providerCapabilities';
+
 /**
  * Vendor keys recognised by the icon system.
  * Each key maps to a named export from @lobehub/icons.
@@ -62,12 +64,11 @@ const MODEL_VENDOR_PATTERNS: ReadonlyArray<readonly [RegExp, ModelVendor]> = [
 ];
 
 /**
- * Provider ID to vendor mapping.
+ * Provider preset ID to vendor mapping for ids that are not one of the two
+ * runtime providers (those are declared in providerCapabilities.ts instead).
  * Used when provider preset ID is known (e.g. from PROVIDER_PRESETS).
  */
 const PROVIDER_TO_VENDOR: Record<string, ModelVendor> = {
-  claude: 'claude',
-  codex: 'openai',
   gemini: 'gemini',
   qwen: 'qwen',
   deepseek: 'deepseek',
@@ -94,11 +95,16 @@ export function resolveModelVendor(modelId: string): ModelVendor | null {
 
 /**
  * Resolve vendor from a provider ID.
+ * Runtime providers (claude/codex) are answered from the capability table;
+ * other provider preset IDs fall back to the local mapping.
  *
  * @param providerId - The provider preset ID (e.g. "claude", "qwen", "deepseek")
  * @returns The vendor key, or null if not a known provider
  */
 export function resolveProviderVendor(providerId: string): ModelVendor | null {
+  if (isKnownProvider(providerId)) {
+    return getProviderCapabilities(providerId).iconVendor;
+  }
   return PROVIDER_TO_VENDOR[providerId] ?? null;
 }
 

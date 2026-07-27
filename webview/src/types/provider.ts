@@ -339,6 +339,8 @@ export interface CodexProviderConfig {
   createdAt?: number;
   /** Whether this is the currently active provider */
   isActive?: boolean;
+  /** Import source marker; 'cc-switch' means imported from cc-switch (one-way snapshot) */
+  source?: 'cc-switch' | string;
   /** config.toml content (raw string) */
   configToml?: string;
   /** auth.json content (raw string) */

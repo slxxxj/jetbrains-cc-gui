@@ -9,6 +9,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { createInterface } from 'readline';
 import { getClaudeDir } from '../../utils/path-utils.js';
+import { emit } from '../../protocol/emitter.js';
 
 /**
  * Append a message to the JSONL history file.
@@ -33,7 +34,7 @@ export function persistJsonlMessage(sessionId, cwd, obj) {
     appendFileSync(sessionFile, JSON.stringify(enrichedObj) + '\n', 'utf8');
     console.log('[PERSIST] Message saved to:', sessionFile);
   } catch (e) {
-    console.error('[PERSIST_ERROR]', e.message);
+    emit('node_error', { source: 'PERSIST_ERROR', message: e.message });
   }
 }
 
@@ -122,7 +123,7 @@ export async function getSessionMessages(sessionId, cwd = null) {
     }));
 
   } catch (error) {
-    console.error('[GET_SESSION_ERROR]', error.message);
+    emit('node_error', { source: 'GET_SESSION_ERROR', message: error.message });
     console.log(JSON.stringify({
       success: false,
       error: error.message

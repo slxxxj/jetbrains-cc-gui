@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        ⚠️ **请先查看 [#1096 第三方 API 兼容性 tracking issue](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui/issues/1096)**
+        ⚠️ **请先查看 [#1096 第三方 API 兼容性 tracking issue](https://github.com/zhukunpenglinyutong/jetbrains-codeaide/issues/1096)**
 
         如果你的问题属于已知兼容性问题，请直接在 #1096 下评论补充。
         If your issue is similar to known compatibility problems, please comment on #1096 instead.

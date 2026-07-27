@@ -24,10 +24,26 @@
 
 // Shared utilities
 import { readStdinData } from './utils/stdin-utils.js';
-import { handleClaudeCommand } from './channels/claude-channel.js';
-import { handleCodexCommand } from './channels/codex-channel.js';
+// Channel modules self-register into the registry on import.
+import './channels/claude-channel.js';
+import './channels/codex-channel.js';
+import { getChannelHandler, listChannels } from './channels/registry.js';
 import { getSdkStatus, isClaudeSdkAvailable, isCodexSdkAvailable } from './utils/sdk-loader.js';
 import { injectStartupEnvVars, configureCliIdentity } from './config/api-config.js';
+import { initEmitter } from './protocol/emitter.js';
+
+// Per-process mode: business output is written as structured v2 envelopes
+// ({type, data}, one NDJSON line each, no request id). Diagnostic logs go to
+// stderr so they never mix into the stdout data stream (Java merges the two
+// streams and surfaces stderr lines as node_log).
+initEmitter(
+  (obj) => {
+    process.stdout.write(JSON.stringify(obj) + '\n');
+  },
+  (text) => {
+    process.stderr.write(text + '\n');
+  }
+);
 
 // Sync proxy/TLS settings and AWS credentials from ~/.claude/settings.json
 // BEFORE any network activity, but only for explicitly authorized Local
@@ -114,11 +130,24 @@ async function handleSystemCommand(command, args, stdinData) {
   }
 }
 
-const providerHandlers = {
-  claude: handleClaudeCommand,
-  codex: handleCodexCommand,
-  system: handleSystemCommand
-};
+// Provider routing: every provider channel comes from the registry; 'system'
+// is the only entry-point-level pseudo-provider (SDK status checks).
+const SYSTEM_PROVIDER = 'system';
+
+function resolveProviderHandler(provider) {
+  if (provider === SYSTEM_PROVIDER) {
+    return handleSystemCommand;
+  }
+  return getChannelHandler(provider);
+}
+
+function invalidProviderMessage() {
+  const quoted = [...listChannels(), SYSTEM_PROVIDER].map((p) => `"${p}"`);
+  const usage = quoted.length > 1
+    ? `${quoted.slice(0, -1).join(', ')}, or ${quoted[quoted.length - 1]}`
+    : quoted[0];
+  return 'Invalid provider. Use ' + usage;
+}
 
 // Execute command
 (async () => {
@@ -126,8 +155,9 @@ const providerHandlers = {
   try {
     // Validate provider
     console.log('[DIAG-EXEC] Validating provider...');
-    if (!provider || !providerHandlers[provider]) {
-      console.error('Invalid provider. Use "claude", "codex", or "system"');
+    const handler = resolveProviderHandler(provider);
+    if (!provider || !handler) {
+      console.error(invalidProviderMessage());
       console.log(JSON.stringify({
         success: false,
         error: 'Invalid provider: ' + provider
@@ -152,8 +182,7 @@ const providerHandlers = {
 
     // Dispatch to the appropriate provider handler
     console.log('[DIAG-EXEC] Dispatching to handler:', provider);
-    const handler = providerHandlers[provider];
-    await handler(command, args, stdinData);
+    await handler(command, args, stdinData, { isDaemonMode: false });
     console.log('[DIAG-EXEC] Handler completed successfully');
 
     // IMPORTANT: Do not use process.exit(0) here -- it terminates the process

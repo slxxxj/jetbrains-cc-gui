@@ -146,7 +146,7 @@ export function useInputHistory({
     historyIndexRef.current = -1;
     draftRef.current = '';
 
-    // Also sync to .codemoss (async)
+    // Also sync to .codeaide (async)
     sendToJava('record_input_history', JSON.stringify(fragments));
   }, []);
 

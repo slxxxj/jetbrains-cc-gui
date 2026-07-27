@@ -33,6 +33,7 @@ import {
   parseFunctionCallArguments, normalizeFunctionCallTool,
   rememberToolInvocation, findMatchingToolUseId,
 } from './codex-tool-normalization.js';
+import { emit } from '../../protocol/emitter.js';
 
 const COMMAND_DENIED_ABORT_ERROR = '__CODEX_COMMAND_DENIED_ABORT__';
 
@@ -451,11 +452,11 @@ async function maybeRequestCommandApprovalViaBridge(state, config, { toolUseId, 
 }
 
 function emitThinkingDelta(text) {
-  process.stdout.write(`[THINKING_DELTA] ${JSON.stringify(text)}\n`);
+  emit('thinking_delta', text);
 }
 
 function emitContentDelta(text) {
-  process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(text)}\n`);
+  emit('content_delta', text);
 }
 
 function extractAppendedDelta(previousText, nextText) {
@@ -469,7 +470,7 @@ function extractAppendedDelta(previousText, nextText) {
 }
 
 function emitThinkingBlock(state, text) {
-  console.log('[THINKING]', text);
+  emit('thinking', text);
   state.emitMessage({
     type: 'assistant',
     message: { role: 'assistant', content: [{ type: 'thinking', thinking: text, text }] }
@@ -576,6 +577,21 @@ function handleCommandExecution(item, state) {
   state.emittedToolResultIds.add(toolUseId);
 }
 
+/**
+ * Best-effort list of changed paths carried by the SDK file_change item itself,
+ * used only for diagnostics when session-log patch extraction comes up empty.
+ */
+function describeFileChangeItemPaths(item) {
+  const changes = item?.changes;
+  let paths = [];
+  if (Array.isArray(changes)) {
+    paths = changes.map((change) => (typeof change === 'string' ? change : change?.path)).filter(Boolean);
+  } else if (changes && typeof changes === 'object') {
+    paths = Object.keys(changes);
+  }
+  return paths;
+}
+
 async function handleFileChange(item, state, config) {
   const status = item.status || 'completed';
   const isError = status !== 'completed';
@@ -604,8 +620,17 @@ async function handleFileChange(item, state, config) {
     }
   }
   const emitted = emitSyntheticPatchOperations(state, patchBatches, isError, deniedCallIds, rollbackByCallId);
-  if (emitted > 0) console.log('[DEBUG] file_change synthesized operations:', emitted);
-  else console.log('[DEBUG] file_change: no patch operations found in session log');
+  if (emitted > 0) {
+    console.log('[DEBUG] file_change synthesized operations:', emitted);
+  } else {
+    const changePaths = describeFileChangeItemPaths(item);
+    console.log(
+      '[DEBUG] file_change: no patch operations found in session log',
+      changePaths.length > 0
+        ? `(SDK item changes: ${changePaths.join(', ')})`
+        : '(no changes reported on SDK item)'
+    );
+  }
 }
 
 function handleMcpToolCall(item, state) {
@@ -667,7 +692,9 @@ export async function processCodexEventStream(events, state, config) {
         state.processedPatchCallIds.clear();
         state.processedSessionFunctionCallIds.clear();
         state.processedSessionFunctionOutputIds.clear();
-        console.log('[THREAD_ID]', state.currentThreadId);
+        // Codex thread ids are the provider's session identifier; emit them
+        // under the unified 'session_id' type (Java maps it to onMessage("session_id")).
+        emit('session_id', state.currentThreadId);
         break;
       }
 

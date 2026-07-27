@@ -1,10 +1,10 @@
 <idea-plugin>
-    <id>com.github.idea-claude-code-gui</id>
-    <name>CC GUI (Claude or Codex)</name>
-    <vendor>MossX</vendor>
+    <id>com.codeaide</id>
+    <name>CodeAide (Claude or Codex)</name>
+    <vendor>CodeAide Team</vendor>
 
     <!-- Resource bundle for i18n -->
-    <resource-bundle>messages.ClaudeCodeGuiBundle</resource-bundle>
+    <resource-bundle>messages.CodeAideBundle</resource-bundle>
 
     <description><![CDATA[
         <h2>Dual-engine GUI for Claude Code and Codex - MIT 100% Open Source</h2>
@@ -48,7 +48,7 @@
 
         <h2>使用方法</h2>
         <ul>
-            <li>从右侧边栏打开 CC GUI 工具窗口</li>
+            <li>从右侧边栏打开 CodeAide 工具窗口</li>
             <li>选中代码后使用 <kbd>Ctrl+Alt+K</kbd>（Win/Linux）或 <kbd>Cmd+Alt+K</kbd>（Mac）发送给 AI</li>
             <li>即时获得 AI 驱动的代码辅助和智能建议</li>
         </ul>
@@ -65,35 +65,38 @@
     <depends optional="true" config-file="python-features.xml">com.intellij.modules.python</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- CC GUI tool window (includes history feature) -->
-        <toolWindow id="CCG"
+        <!-- CodeAide tool window (includes history feature) -->
+        <toolWindow id="CodeAide"
                     anchor="right"
-                    factoryClass="com.github.claudecodegui.ui.toolwindow.ClaudeSDKToolWindow"
-                    icon="/icons/cc-gui-icon.svg"
+                    factoryClass="com.codeaide.ui.toolwindow.ClaudeSDKToolWindow"
+                    icon="/icons/codeaide-icon.svg"
                     canCloseContents="true"/>
 
         <!-- Pre-extract AI Bridge on project open to avoid EDT freeze -->
-        <postStartupActivity implementation="com.github.claudecodegui.startup.BridgePreloader"/>
+        <postStartupActivity implementation="com.codeaide.startup.BridgePreloader"/>
 
         <!-- Cleanup old ai-bridge cache when plugin version changes -->
-        <postStartupActivity implementation="com.github.claudecodegui.startup.PluginUpdateListener"/>
+        <postStartupActivity implementation="com.codeaide.startup.PluginUpdateListener"/>
+
+        <!-- Silent auto-install/update of AI SDK dependencies on project open -->
+        <postStartupActivity implementation="com.codeaide.startup.SdkAutoInstallActivity"/>
 
         <!-- Monitor Run/Debug Service Output -->
-        <postStartupActivity implementation="com.github.claudecodegui.service.RunConfigMonitorService"/>
+        <postStartupActivity implementation="com.codeaide.service.RunConfigMonitorService"/>
 
         <!-- StatusBar widget for task notification -->
         <statusBarWidgetFactory id="ClaudeStatusBarWidget"
-                                implementation="com.github.claudecodegui.notifications.ClaudeStatusBarWidget$Factory"/>
+                                implementation="com.codeaide.notifications.ClaudeStatusBarWidget$Factory"/>
 
         <!-- Notification group for DevTools and other balloon notifications -->
-        <notificationGroup id="CC GUI Notifications" displayType="BALLOON"/>
+        <notificationGroup id="CodeAide Notifications" displayType="BALLOON"/>
     </extensions>
 
     <actions>
-        <!-- Action to send selected code to CC GUI -->
-        <action id="ClaudeCodeGUI.SendSelectionToTerminalAction"
-                class="com.github.claudecodegui.action.editor.SendSelectionToTerminalAction"
-                icon="/icons/cc-gui-icon.svg">
+        <!-- Action to send selected code to CodeAide -->
+        <action id="CodeAide.SendSelectionToTerminalAction"
+                class="com.codeaide.action.editor.SendSelectionToTerminalAction"
+                icon="/icons/codeaide-icon.svg">
             <!-- Add to editor context menu (displayed at the top) -->
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt K"/>
@@ -102,99 +105,99 @@
         </action>
 
         <!-- Copy AI Reference Action -->
-        <action id="ClaudeCodeGUI.CopySelectionReferenceAction"
-                class="com.github.claudecodegui.action.editor.CopySelectionReferenceAction"
-                icon="/icons/cc-gui-icon.svg">
+        <action id="CodeAide.CopySelectionReferenceAction"
+                class="com.codeaide.action.editor.CopySelectionReferenceAction"
+                icon="/icons/codeaide-icon.svg">
             <add-to-group group-id="EditorPopupMenu"
                            anchor="after"
-                           relative-to-action="ClaudeCodeGUI.SendSelectionToTerminalAction"/>
+                           relative-to-action="CodeAide.SendSelectionToTerminalAction"/>
         </action>
 
         <!-- Quick Fix with Claude Action -->
-        <action id="ClaudeCodeGUI.QuickFixWithClaudeAction"
-                class="com.github.claudecodegui.action.editor.QuickFixWithClaudeAction"
-                icon="/icons/cc-gui-icon.svg">
+        <action id="CodeAide.QuickFixWithClaudeAction"
+                class="com.codeaide.action.editor.QuickFixWithClaudeAction"
+                icon="/icons/codeaide-icon.svg">
             <add-to-group group-id="EditorPopupMenu"
                            anchor="after"
-                           relative-to-action="ClaudeCodeGUI.SendSelectionToTerminalAction"/>
+                           relative-to-action="CodeAide.SendSelectionToTerminalAction"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift Q"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift Q"/>
             <keyboard-shortcut keymap="macOS" first-keystroke="meta shift Q"/>
         </action>
 
         <!-- Create New Tab Action (can be invoked via Find Action or programmatically) -->
-        <action id="ClaudeCodeGUI.CreateNewTabAction"
-                class="com.github.claudecodegui.action.tab.CreateNewTabAction"
+        <action id="CodeAide.CreateNewTabAction"
+                class="com.codeaide.action.tab.CreateNewTabAction"
                 icon="AllIcons.General.Add"/>
 
         <!-- Rename Tab Action -->
-        <action id="ClaudeCodeGUI.RenameTabAction"
-                class="com.github.claudecodegui.action.tab.RenameTabAction"
+        <action id="CodeAide.RenameTabAction"
+                class="com.codeaide.action.tab.RenameTabAction"
                 icon="AllIcons.Actions.Edit"/>
 
         <!-- Detach Tab Action -->
-        <action id="ClaudeCodeGUI.DetachTabAction"
-                class="com.github.claudecodegui.action.tab.DetachTabAction"
+        <action id="CodeAide.DetachTabAction"
+                class="com.codeaide.action.tab.DetachTabAction"
                 icon="AllIcons.Actions.MoveToWindow"/>
 
         <!-- Save As Template Action -->
-        <action id="ClaudeCodeGUI.SaveAsTemplateAction"
-                class="com.github.claudecodegui.action.SaveAsTemplateAction"
+        <action id="CodeAide.SaveAsTemplateAction"
+                class="com.codeaide.action.SaveAsTemplateAction"
                 icon="AllIcons.Actions.Menu_saveall"/>
 
         <!-- Create From Template Action -->
-        <action id="ClaudeCodeGUI.CreateFromTemplateAction"
-                class="com.github.claudecodegui.action.CreateFromTemplateAction"
+        <action id="CodeAide.CreateFromTemplateAction"
+                class="com.codeaide.action.CreateFromTemplateAction"
                 icon="AllIcons.Actions.AddMulticaret"/>
 
         <!-- Open DevTools Action for JCEF debugging -->
-        <action id="ClaudeCodeGUI.OpenDevToolsAction"
-                class="com.github.claudecodegui.action.dev.OpenDevToolsAction"
+        <action id="CodeAide.OpenDevToolsAction"
+                class="com.codeaide.action.dev.OpenDevToolsAction"
                 icon="AllIcons.Xml.Browsers.Chromium"/>
 
         <!-- Action to send file path from the file tree to the input box -->
-        <action id="ClaudeCodeGUI.SendFilePathToInputAction"
-                class="com.github.claudecodegui.action.editor.SendFilePathToInputAction"
-                icon="/icons/cc-gui-icon.svg">
+        <action id="CodeAide.SendFilePathToInputAction"
+                class="com.codeaide.action.editor.SendFilePathToInputAction"
+                icon="/icons/codeaide-icon.svg">
             <!-- Add to project file tree and editor tab context menus -->
             <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
             <add-to-group group-id="EditorTabPopupMenu" anchor="first"/>
         </action>
 
-        <!-- Action to send the selected console text to CC GUI -->
-        <action id="ClaudeCodeGUI.SendConsoleSelectionToInputAction"
-                class="com.github.claudecodegui.action.console.SendConsoleSelectionToInputAction"
-                icon="/icons/cc-gui-icon.svg">
+        <!-- Action to send the selected console text to CodeAide -->
+        <action id="CodeAide.SendConsoleSelectionToInputAction"
+                class="com.codeaide.action.console.SendConsoleSelectionToInputAction"
+                icon="/icons/codeaide-icon.svg">
             <add-to-group group-id="ConsoleView.PopupMenu" anchor="last"/>
         </action>
 
         <!-- Generate Commit Message with AI Action -->
-        <action id="ClaudeCodeGUI.GenerateCommitMessageAction"
-                class="com.github.claudecodegui.action.vcs.GenerateCommitMessageAction"
+        <action id="CodeAide.GenerateCommitMessageAction"
+                class="com.codeaide.action.vcs.GenerateCommitMessageAction"
                 icon="/icons/logo-16.png">
             <!-- Add to VCS Commit toolbar -->
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
         </action>
 
-        <!-- Chat tool window clipboard actions (scoped to CCG tool window) -->
-        <action id="ClaudeCodeGUI.ChatCopyAction"
-                class="com.github.claudecodegui.action.ChatCopyAction"
+        <!-- Chat tool window clipboard actions (scoped to CodeAide tool window) -->
+        <action id="CodeAide.ChatCopyAction"
+                class="com.codeaide.action.ChatCopyAction"
                 text="Copy (Chat Window)"
                 description="Copy selected text in Claude chat window">
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl C"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta C"/>
             <keyboard-shortcut keymap="macOS" first-keystroke="meta C"/>
         </action>
-        <action id="ClaudeCodeGUI.ChatCutAction"
-                class="com.github.claudecodegui.action.ChatCutAction"
+        <action id="CodeAide.ChatCutAction"
+                class="com.codeaide.action.ChatCutAction"
                 text="Cut (Chat Window)"
                 description="Cut selected text in Claude chat window">
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl X"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta X"/>
             <keyboard-shortcut keymap="macOS" first-keystroke="meta X"/>
         </action>
-        <action id="ClaudeCodeGUI.ChatPasteAction"
-                class="com.github.claudecodegui.action.ChatPasteAction"
+        <action id="CodeAide.ChatPasteAction"
+                class="com.codeaide.action.ChatPasteAction"
                 text="Paste (Chat Window)"
                 description="Paste clipboard text in Claude chat window">
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl V"/>
@@ -203,14 +206,14 @@
         </action>
 
         <!-- Chat tool window send action (no default shortcut; dynamically managed by SendShortcutSync) -->
-        <action id="ClaudeCodeGUI.ChatSendAction"
-                class="com.github.claudecodegui.action.ChatSendAction"
+        <action id="CodeAide.ChatSendAction"
+                class="com.codeaide.action.ChatSendAction"
                 text="Send Message (Chat Window)"
                 description="Send message in Claude chat window"/>
 
         <!-- Chat tool window newline action (Shift+Enter always newline; Ctrl+Enter dynamically managed by SendShortcutSync) -->
-        <action id="ClaudeCodeGUI.ChatNewlineAction"
-                class="com.github.claudecodegui.action.ChatNewlineAction"
+        <action id="CodeAide.ChatNewlineAction"
+                class="com.codeaide.action.ChatNewlineAction"
                 text="Insert Newline (Chat Window)"
                 description="Insert newline in Claude chat window input">
             <keyboard-shortcut keymap="$default" first-keystroke="shift ENTER"/>
@@ -219,7 +222,7 @@
         </action>
 
         <!--
-          Hide CC GUI Panel. A standalone action with NO default keyboard shortcut: users may bind one
+          Hide CodeAide Panel. A standalone action with NO default keyboard shortcut: users may bind one
           in Settings | Keymap to hide the tool window while focus is in the IDE (e.g. the editor).
           NOTE: The Shift+Esc shortcut that hides the panel while focus is INSIDE the webview is
           implemented separately in WebviewInitializer via a JS keydown listener
@@ -227,9 +230,9 @@
           action. Shift+Esc is intentionally not registered here to avoid clashing with the IDE's
           built-in HideActiveWindow shortcut.
         -->
-        <action id="ClaudeCodeGUI.HidePanelAction"
-                class="com.github.claudecodegui.action.HidePanelAction"
-                text="Hide CC GUI Panel"
-                description="Hide the CC GUI tool window panel"/>
+        <action id="CodeAide.HidePanelAction"
+                class="com.codeaide.action.HidePanelAction"
+                text="Hide CodeAide Panel"
+                description="Hide the CodeAide tool window panel"/>
     </actions>
 </idea-plugin>

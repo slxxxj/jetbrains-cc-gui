@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getFileIcon } from '../../utils/fileIcons';
+import { getProviderCapabilities } from '../../utils/providerCapabilities';
 import { TokenIndicator } from './TokenIndicator';
 import type { SelectedAgent } from './types';
 
@@ -277,7 +278,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
         )}
 
         {/* Rewind button */}
-        {currentProvider === 'claude' && onRewind && (
+        {getProviderCapabilities(currentProvider).supportsRewind && onRewind && (
           <button
             className="context-tool-btn has-tooltip"
             onClick={onRewind}

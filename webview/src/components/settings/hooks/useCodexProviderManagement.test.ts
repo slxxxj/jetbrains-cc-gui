@@ -21,7 +21,7 @@ describe('useCodexProviderManagement', () => {
     });
 
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'revoke_codex_local_config_authorization:{"fallbackProviderId":"provider-1"}'
+      JSON.stringify({ type: 'revoke_codex_local_config_authorization', payload: { fallbackProviderId: 'provider-1' } })
     );
     expect(result.current.codexLoading).toBe(true);
   });

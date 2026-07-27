@@ -9,13 +9,21 @@
  * Protocol (stdin, one JSON per line):
  *   {"id":"1","method":"claude.send","params":{...}}
  *   {"id":"2","method":"heartbeat"}
+ *   {"type":"permission_response","requestId":"...","decision":{...}}  // out-of-band, bypasses queue
  *
- * Protocol (stdout, one JSON per line):
- *   {"type":"daemon","event":"ready","pid":12345}           // daemon lifecycle
- *   {"id":"1","line":"[STREAM_START]"}                      // command output
- *   {"id":"1","line":"[CONTENT_DELTA] \"Hello\""}           // streaming delta
- *   {"id":"1","done":true,"success":true}                   // command complete
- *   {"id":"2","type":"heartbeat","ts":1234567890}           // heartbeat response
+ * Protocol (stdout, one JSON per line — structured v2 envelopes):
+ *   {"type":"daemon","event":"ready","pid":12345}              // daemon lifecycle
+ *   {"type":"permission_request","requestId":"...","payload":{...}}  // out-of-band permission prompt
+ *   {"id":"1","type":"stream_start"}                           // command output (marker)
+ *   {"id":"1","type":"content_delta","data":"Hello"}           // streaming delta
+ *   {"id":"1","type":"message","data":{...}}                   // full SDK message
+ *   {"id":"1","done":true,"success":true}                      // command complete
+ *   {"id":"2","type":"heartbeat","ts":1234567890}              // heartbeat response
+ *
+ * Business output is written exclusively through protocol/emitter.js. The
+ * stdout interception below remains only as a safety net that wraps unexpected
+ * third-party writes (SDK debug logs, stray console output) as daemon log
+ * events so they can never corrupt the NDJSON stream.
  *
  * Key advantages over per-request spawning:
  * - SDK loaded once at startup (~2-5s saved per request)
@@ -26,21 +34,23 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { createInterface } from 'readline';
-import { handleClaudeCommand } from './channels/claude-channel.js';
-import { handleCodexCommand } from './channels/codex-channel.js';
+// Channel modules self-register into the registry on import.
+import './channels/claude-channel.js';
+import './channels/codex-channel.js';
+import { getChannelHandler } from './channels/registry.js';
 import { loadClaudeSdk, isClaudeSdkAvailable } from './utils/sdk-loader.js';
 import {
-  sendMessagePersistent,
-  sendMessageWithAttachmentsPersistent,
-  preconnectPersistent,
   shutdownPersistentRuntimes,
-  abortCurrentTurn,
-  resetRuntimePersistent,
-  getContextUsagePersistent,
-  setPermissionModePersistent
+  abortCurrentTurn
 } from './services/claude/persistent-query-service.js';
 import { injectStartupEnvVars, isWebviewControlledEnvVar, isDangerousEnvVar } from './config/api-config.js';
 import { cleanupStaleTempImages } from './services/claude/attachment-service.js';
+import { initEmitter, emitDone } from './protocol/emitter.js';
+import {
+  initDaemonPermissionChannel,
+  handleDaemonPermissionResponse,
+  failAllPendingDaemonPermissionRequests,
+} from './permission-ipc.js';
 
 // =============================================================================
 // Startup Environment Setup (must run before any HTTPS connection)
@@ -71,10 +81,12 @@ let sdkPreloaded = false;
 // =============================================================================
 // Output Interception
 //
-// The existing message-service.js uses console.log('[TAG]', data) and
-// process.stdout.write('[CONTENT_DELTA] ...\n') to communicate with Java.
-// In daemon mode, we intercept these to wrap each line in a JSON envelope
-// tagged with the current request ID, so Java can demux responses.
+// Business modules emit structured envelopes via protocol/emitter.js, whose
+// writer (registered below) serializes one NDJSON line per envelope through
+// the pre-interception stdout writer. The process.stdout.write override is a
+// safety net only: any output that bypasses the emitter (third-party SDK debug
+// logs, stray console writes) is wrapped as a daemon log event instead of a
+// request-scoped data line.
 // =============================================================================
 
 const _originalStdoutWrite = process.stdout.write.bind(process.stdout);
@@ -181,8 +193,10 @@ if (process.platform !== 'win32' && !process.env.__AI_BRIDGE_ENV_PROBED) {
 }
 
 // One-shot diagnostic: confirms WSLENV-propagated vars actually reached the daemon.
-// If CLAUDE_PERMISSION_DIR shows up as `unset` here while Java logs claim to have
-// set it, WSLENV is not being honored and the permission bridge will hang.
+// Daemon-mode permission prompts ride the out-of-band NDJSON channel, so
+// CLAUDE_PERMISSION_DIR is intentionally NOT injected by the Java launcher
+// anymore (only the per-process fallback still receives it); `unset` is the
+// expected value here. CLAUDE_SESSION_ID is still propagated for request context.
 _originalStderrWrite(
   `[daemon] bridge env: CLAUDE_PERMISSION_DIR=${process.env.CLAUDE_PERMISSION_DIR ?? 'unset'}`
   + ` CLAUDE_SESSION_ID=${process.env.CLAUDE_SESSION_ID ?? 'unset'}`
@@ -204,26 +218,33 @@ function sendDaemonEvent(event, data = {}) {
   writeRawLine({ type: 'daemon', event, ...data });
 }
 
+// Register the protocol emitter's transport. The writer tags request-scoped
+// envelopes with the CURRENT activeRequestId at write time (read lazily, so
+// inter-turn events emitted after a request completes are not misrouted).
+// Daemon lifecycle events ({type:'daemon', ...}) and envelopes written outside
+// any active request pass through untagged.
+initEmitter((obj) => {
+  if (obj.type === 'daemon' || activeRequestId == null) {
+    writeRawLine(obj);
+  } else {
+    writeRawLine({ id: activeRequestId, ...obj });
+  }
+});
+
+// Register the out-of-band permission channel. Requests are written raw
+// (NEVER tagged with activeRequestId): a canUseTool prompt can surface in the
+// middle of any turn, and the response arrives asynchronously over stdin,
+// bypassing the command queue just like abort.
+initDaemonPermissionChannel((obj) => writeRawLine(obj));
+
 /**
- * Override process.stdout.write to tag output with request ID.
+ * Override process.stdout.write as a safety net for non-emitter output.
  */
 process.stdout.write = function (chunk, encoding, callback) {
   // Convert Buffer to string if needed
   const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
 
-  if (activeRequestId) {
-    // Tag output with request ID for demuxing on Java side
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.length > 0) {
-        writeRawLine({ id: activeRequestId, line });
-      }
-    }
-    if (typeof callback === 'function') callback();
-    return true;
-  }
-
-  // No active request — check if this is already JSON (daemon event).
+  // Already-JSON output passes through untouched.
   // SAFETY: writeRawLine() always produces lines starting with '{' (JSON.stringify
   // of an object), so they pass through to _originalStdoutWrite without recursion.
   const trimmed = text.trim();
@@ -231,8 +252,9 @@ process.stdout.write = function (chunk, encoding, callback) {
     return _originalStdoutWrite(chunk, encoding, callback);
   }
 
-  // Non-JSON output without a request context (e.g., SDK debug logs during preload)
-  // Wrap as a daemon log event so Java's NDJSON parser can handle it
+  // Anything else is unexpected output that bypassed the emitter (SDK debug
+  // logs, stray third-party writes). Wrap each line as a daemon log event so
+  // Java's NDJSON parser can handle it and the data stream stays clean.
   if (trimmed.length > 0) {
     const lines = text.split('\n');
     for (const line of lines) {
@@ -245,11 +267,10 @@ process.stdout.write = function (chunk, encoding, callback) {
   return true;
 };
 
-// Expose the pre-interception writer so out-of-band emitters can write
-// process-level NDJSON that must NOT be wrapped with activeRequestId.
-// The per-runtime perpetual reader (runtime-lifecycle.js) uses this to emit
-// inter-turn 'session_updated' events; without it those events would be
-// misrouted to whatever request happens to be active. See startPerpetualReader().
+// Expose the pre-interception writer for any out-of-band code that must write
+// process-level NDJSON not tagged with activeRequestId. Inter-turn events
+// (e.g. the perpetual reader's 'session_updated') go through the protocol
+// emitter's emitDaemonEvent instead; this exposure remains as an escape hatch.
 process.stdout._originalStdoutWrite = _originalStdoutWrite;
 // Expose the pre-interception stderr writer so out-of-band code (notably the
 // queue-bypassing setPermissionMode path, which runs while another turn's
@@ -258,7 +279,7 @@ process.stdout._originalStdoutWrite = _originalStdoutWrite;
 process.stderr._originalStderrWrite = _originalStderrWrite;
 
 /**
- * Override console.log to go through our tagged stdout.
+ * Override console.log to go through the log-wrapping stdout safety net.
  */
 console.log = function (...args) {
   const text = args
@@ -268,17 +289,15 @@ console.log = function (...args) {
 };
 
 /**
- * Override console.error to tag stderr output as well.
+ * Override console.error the same way: diagnostic stderr text is wrapped as a
+ * daemon log event rather than a request-scoped data line, so it can no longer
+ * be mistaken for command output.
  */
 console.error = function (...args) {
   const text = args
     .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
     .join(' ');
-  if (activeRequestId) {
-    writeRawLine({ id: activeRequestId, stderr: text });
-  } else {
-    _originalStderrWrite(text + '\n', 'utf8');
-  }
+  process.stdout.write(text + '\n');
 };
 
 // =============================================================================
@@ -363,6 +382,22 @@ async function preloadSdks() {
 // =============================================================================
 
 /**
+ * Dispatch a command to its provider channel via the registry.
+ *
+ * This is the single routing path for all "provider.command" methods: the
+ * daemon only splits the provider prefix and looks the channel up — which
+ * service (persistent vs per-process) backs each command is the channel's
+ * decision, expressed through the dispatch context.
+ */
+async function dispatchChannelCommand(provider, command, stdinData, context) {
+  const handler = getChannelHandler(provider);
+  if (!handler) {
+    throw new Error(`Unknown provider: ${provider}`);
+  }
+  await handler(command, [], stdinData, context);
+}
+
+/**
  * Process a single request from stdin.
  */
 async function processRequest(request) {
@@ -396,6 +431,7 @@ async function processRequest(request) {
 
   // --- Graceful shutdown ---
   if (method === 'shutdown') {
+    failAllPendingDaemonPermissionRequests();
     await shutdownPersistentRuntimes();
     sendDaemonEvent('shutdown', { reason: 'requested' });
     writeRawLine({ id: id || '0', done: true, success: true });
@@ -460,31 +496,13 @@ async function processRequest(request) {
     const stdinData = { ...params };
     delete stdinData.env; // env is handled separately
 
-    if (provider === 'claude' && command === 'send') {
-      await sendMessagePersistent(stdinData);
-    } else if (provider === 'claude' && command === 'sendWithAttachments') {
-      await sendMessageWithAttachmentsPersistent(stdinData);
-    } else if (provider === 'claude' && command === 'preconnect') {
-      await preconnectPersistent(stdinData);
-    } else if (provider === 'claude' && command === 'resetRuntime') {
-      await resetRuntimePersistent(stdinData);
-    } else if (provider === 'claude' && command === 'getContextUsage') {
-      await getContextUsagePersistent(stdinData);
-    } else {
-      // Dispatch to the existing handlers for non-send commands.
-      switch (provider) {
-        case 'claude':
-          await handleClaudeCommand(command, [], stdinData);
-          break;
-        case 'codex':
-          await handleCodexCommand(command, [], stdinData);
-          break;
-        default:
-          throw new Error(`Unknown provider: ${provider}`);
-      }
-    }
+    // Route through the channel registry. Channels receive the daemon
+    // dispatch context so commands backed by the persistent runtime
+    // (claude send-family, preconnect, resetRuntime, getContextUsage,
+    // setPermissionMode) keep their warm-runtime semantics.
+    await dispatchChannelCommand(provider, command, stdinData, { isDaemonMode: true });
 
-    writeRawLine({ id, done: true, success: true });
+    emitDone(true);
   } catch (error) {
     // Only send done if not already sent (e.g., by process.exit interceptor)
     if (activeRequestId !== null) {
@@ -593,6 +611,14 @@ async function processRequest(request) {
       return;
     }
 
+    // Permission responses are out-of-band: they resolve a pending canUseTool
+    // prompt and must bypass the command queue (like abort) — queuing them
+    // behind the very turn that awaits the decision would deadlock.
+    if (request.type === 'permission_response') {
+      handleDaemonPermissionResponse(request);
+      return;
+    }
+
     // Heartbeats and status queries don't use activeRequestId — safe to run immediately
     if (request.method === 'heartbeat' || request.method === 'status') {
       processRequest(request);
@@ -606,6 +632,9 @@ async function processRequest(request) {
         `[daemon] Abort requested, active request: ${targetId || 'none'}\n`,
         'utf8'
       );
+      // Resolve any parked permission prompts with the deny default so the
+      // aborted turn cannot leave them waiting for the safety-net timeout.
+      failAllPendingDaemonPermissionRequests();
       if (targetId) {
         // Fire-and-forget: disposeRuntime will cause the queued processRequest
         // to throw and emit its own done signal. We don't need to await here
@@ -637,7 +666,7 @@ async function processRequest(request) {
           'utf8'
         );
       }
-      setPermissionModePersistent(request.params || {})
+      dispatchChannelCommand('claude', 'setPermissionMode', request.params || {}, { isDaemonMode: true })
         .then(() => writeRawLine({ id: switchId, done: true, success: true }))
         .catch((e) => {
           _originalStderrWrite(`[daemon] setPermissionMode error: ${e.message}\n`, 'utf8');
@@ -667,6 +696,7 @@ async function processRequest(request) {
     // unref() so this timer doesn't prevent natural exit if cleanup finishes fast
     forceExitTimer.unref();
 
+    failAllPendingDaemonPermissionRequests();
     try {
       await shutdownPersistentRuntimes();
     } catch (e) {

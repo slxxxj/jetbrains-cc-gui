@@ -1,14 +1,13 @@
 /**
  * SDK dependency type definitions
  *
- * SDK dependency installation path: ~/.codemoss/dependencies/
+ * SDK dependency installation path: ~/.codeaide/dependencies/
  * - claude-sdk: Claude SDK (@anthropic-ai/claude-agent-sdk and its dependencies)
  * - codex-sdk: Codex SDK (@openai/codex-sdk)
  *
- * Supported operations:
- * - Install/uninstall SDKs
- * - Check for updates
- * - View installation status
+ * Install/update is fully automatic on the backend (silent install on first
+ * launch, background updates, automatic retries). The frontend only queries
+ * and displays installation status (get_dependency_status).
  */
 
 /**

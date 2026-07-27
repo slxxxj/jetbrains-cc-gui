@@ -15,12 +15,7 @@ import {
   subscribeCodexProviderList,
   subscribeProviderList,
 } from '../../../utils/runtimeProviderCapabilities';
-
-const sendToJava = (message: string) => {
-  if (window.sendToJava) {
-    window.sendToJava(message);
-  }
-};
+import { sendBridgeEvent } from '../../../utils/bridge';
 
 export interface SettingsWindowCallbacksDeps {
   // State setters
@@ -523,24 +518,24 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
     d().loadAgents();
     // Note: loadPrompts is now handled by PromptSection component
     d().loadPrompts?.();
-    sendToJava('get_node_path:');
-    sendToJava('get_claude_cli_path:');
-    sendToJava('get_working_directory:');
-    sendToJava('get_editor_font_config:');
-    sendToJava('get_ui_font_config:');
-    sendToJava('get_code_font_config:');
-    sendToJava('get_streaming_enabled:');
-    sendToJava('get_codex_sandbox_mode:');
-    sendToJava('get_commit_prompt:');
-    sendToJava('get_commit_ai_config:');
-    sendToJava('get_prompt_enhancer_config:');
-    sendToJava('get_sound_notification_config:');
-    sendToJava('get_commit_generation_enabled:');
-    sendToJava('get_ai_title_generation_enabled:');
-    sendToJava('get_status_bar_widget_enabled:');
-    sendToJava('get_task_completion_notification_enabled:');
-    sendToJava('get_ask_user_question_notification_enabled:');
-    sendToJava('get_permission_dialog_timeout:');
+    sendBridgeEvent('get_node_path');
+    sendBridgeEvent('get_claude_cli_path');
+    sendBridgeEvent('get_working_directory');
+    sendBridgeEvent('get_editor_font_config');
+    sendBridgeEvent('get_ui_font_config');
+    sendBridgeEvent('get_code_font_config');
+    sendBridgeEvent('get_streaming_enabled');
+    sendBridgeEvent('get_codex_sandbox_mode');
+    sendBridgeEvent('get_commit_prompt');
+    sendBridgeEvent('get_commit_ai_config');
+    sendBridgeEvent('get_prompt_enhancer_config');
+    sendBridgeEvent('get_sound_notification_config');
+    sendBridgeEvent('get_commit_generation_enabled');
+    sendBridgeEvent('get_ai_title_generation_enabled');
+    sendBridgeEvent('get_status_bar_widget_enabled');
+    sendBridgeEvent('get_task_completion_notification_enabled');
+    sendBridgeEvent('get_ask_user_question_notification_enabled');
+    sendBridgeEvent('get_permission_dialog_timeout');
 
     return () => {
       d().cleanupAgentsTimeout();

@@ -32,11 +32,11 @@ function getRealHomeDir() {
 }
 
 /**
- * Get the .codemoss configuration directory path.
- * @returns {string} ~/.codemoss directory path
+ * Get the .codeaide configuration directory path.
+ * @returns {string} ~/.codeaide directory path
  */
-function getCodemossDir() {
-  return path.join(getRealHomeDir(), '.codemoss');
+function getCodeaideDir() {
+  return path.join(getRealHomeDir(), '.codeaide');
 }
 
 /**
@@ -49,6 +49,6 @@ function getClaudeDir() {
 
 module.exports = {
   getRealHomeDir,
-  getCodemossDir,
+  getCodeaideDir,
   getClaudeDir
 };

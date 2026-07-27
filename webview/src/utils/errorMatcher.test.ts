@@ -12,7 +12,7 @@ describe('matchErrorPattern', () => {
     const result = matchErrorPattern(text);
     expect(result).not.toBeNull();
     expect(result?.code).toBe('sdkNativeBinaryMissing');
-    expect(result?.solutions).toHaveLength(2);
+    expect(result?.solutions).toHaveLength(1);
   });
 
   it('matches case-insensitively on the regex portion', () => {
@@ -38,14 +38,14 @@ describe('matchErrorPattern', () => {
     expect(result?.code).toBe('sdkNativeBinaryMissing');
   });
 
-  it('exposes solutions with the expected step kinds', () => {
+  it('exposes solutions with command-only steps (install is auto-retried by the plugin)', () => {
     const text =
       'Native CLI binary for claude-agent-sdk not found in installation directory';
     const result = matchErrorPattern(text);
     const switchRegistry = result?.solutions.find((s) => s.key === 'switchRegistry');
     expect(switchRegistry?.recommended).toBe(true);
     expect(switchRegistry?.steps[0]?.kind).toBe('command');
-    expect(switchRegistry?.steps[1]?.kind).toBe('navigation');
+    expect(switchRegistry?.steps[1]?.kind).toBe('command');
   });
 
   it('matches spawn EBUSY error and exposes both solutions', () => {
@@ -59,8 +59,8 @@ describe('matchErrorPattern', () => {
       expect(checkNode.steps[0].command).toBe('node -v');
     }
     const reinstall = result?.solutions.find((s) => s.key === 'reinstallLatestSdk');
+    expect(reinstall?.steps).toHaveLength(1);
     expect(reinstall?.steps[0]?.kind).toBe('command');
-    expect(reinstall?.steps[1]?.kind).toBe('navigation');
   });
 
   it('matches spawn EBUSY case-insensitively', () => {

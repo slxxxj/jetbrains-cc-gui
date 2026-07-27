@@ -1,4 +1,5 @@
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock, ClaudeRawMessage } from '../types';
+import { sendToJava } from './bridge';
 import {
   hasCommandMessageTag,
   hasTaskNotificationTag,
@@ -373,13 +374,13 @@ function normalizeBlocks(raw: ClaudeRawMessage | unknown): (ClaudeContentBlock |
  */
 export function downloadJSON(content: string, filename: string): void {
   // Save file via backend, showing file chooser dialog
-  const payload = JSON.stringify({
+  const payload = {
     content: content,
     filename: filename.endsWith('.json') ? filename : `${filename}.json`
-  });
+  };
 
   if (window.sendToJava) {
-    window.sendToJava(`save_json:${payload}`);
+    sendToJava('save_json', payload);
   } else {
     console.error('[Frontend] sendToJava not available, falling back to browser download');
     // Fallback: use browser download

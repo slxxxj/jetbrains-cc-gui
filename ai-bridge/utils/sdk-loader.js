@@ -1,34 +1,43 @@
 /**
  * SDK Loader - Dynamically loads optional AI SDKs
  *
- * Supports loading SDKs from the user directory ~/.codemoss/dependencies/
+ * Supports loading SDKs from the user directory ~/.codeaide/dependencies/
  * This allows users to install SDKs on demand rather than bundling them with the plugin
+ *
+ * SDK definitions are no longer hardcoded here: each channel declares its SDK
+ * descriptor ({ id, npmPackage, cacheKey, notInstalledMessage }) when it
+ * registers in channels/registry.js (built-in descriptors live in
+ * channels/sdk-descriptors.js). The legacy claude/codex-named exports remain
+ * as delegating wrappers so existing imports keep working.
  */
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
-import { getRealHomeDir, getCodemossDir } from './path-utils.js';
+import { getRealHomeDir, getCodeaideDir } from './path-utils.js';
+import { getChannelSdkDescriptor, listChannels } from '../channels/registry.js';
 
 // Base path for dependencies directory - uses the shared path utility
-const DEPS_BASE = join(getCodemossDir(), 'dependencies');
+const DEPS_BASE = join(getCodeaideDir(), 'dependencies');
 
 // SDK cache
 const sdkCache = new Map();
 // Promise cache for in-flight loads to prevent concurrent loading of the same SDK
 const loadingPromises = new Map();
 
-// SDK definitions (kept in sync with DependencyManager.SdkDefinition)
-const SDK_DEFINITIONS = {
-    CLAUDE: {
-        id: 'claude-sdk',
-        npmPackage: '@anthropic-ai/claude-agent-sdk'
-    },
-    CODEX: {
-        id: 'codex-sdk',
-        npmPackage: '@openai/codex-sdk'
+/**
+ * Resolve the SDK descriptor a channel declared for the given provider.
+ * @param {string} provider - e.g. 'claude', 'codex'
+ * @returns {object} { id, npmPackage, cacheKey, displayName, notInstalledMessage }
+ * @throws {Error} If no channel registered an SDK descriptor for the provider
+ */
+function getSdkDescriptor(provider) {
+    const descriptor = getChannelSdkDescriptor(provider);
+    if (!descriptor) {
+        throw new Error(`No SDK descriptor registered for provider: ${provider}`);
     }
-};
+    return descriptor;
+}
 
 function getSdkRootDir(sdkId) {
     return join(DEPS_BASE, sdkId);
@@ -103,13 +112,24 @@ function resolveExternalPackageUrl(pkgName, sdkRootDir) {
 }
 
 /**
+ * Check whether a provider's SDK is available, using the SDK descriptor the
+ * channel declared at registration.
+ * Logic kept consistent with DependencyManager.isInstalled(provider)
+ * @param {string} provider - e.g. 'claude', 'codex'
+ */
+export function isSdkAvailable(provider) {
+    const descriptor = getSdkDescriptor(provider);
+    const sdkPath = getPackageDirFromRoot(getSdkRootDir(descriptor.id), descriptor.npmPackage);
+    return existsSync(sdkPath);
+}
+
+/**
  * Check whether the Claude Code SDK is available
  * Logic kept consistent with DependencyManager.isInstalled("claude")
  */
 export function isClaudeSdkAvailable() {
-    const sdkId = 'claude-sdk';
-    const npmPackage = '@anthropic-ai/claude-agent-sdk';
-    const sdkPath = getPackageDirFromRoot(getSdkRootDir(sdkId), npmPackage);
+    const descriptor = getSdkDescriptor('claude');
+    const sdkPath = getPackageDirFromRoot(getSdkRootDir(descriptor.id), descriptor.npmPackage);
     const exists = existsSync(sdkPath);
     console.log('[sdk-loader] isClaudeSdkAvailable:', {
         path: sdkPath,
@@ -124,9 +144,8 @@ export function isClaudeSdkAvailable() {
  * Logic kept consistent with DependencyManager.isInstalled("codex")
  */
 export function isCodexSdkAvailable() {
-    const sdkId = 'codex-sdk';
-    const npmPackage = '@openai/codex-sdk';
-    const sdkPath = getPackageDirFromRoot(getSdkRootDir(sdkId), npmPackage);
+    const descriptor = getSdkDescriptor('codex');
+    const sdkPath = getPackageDirFromRoot(getSdkRootDir(descriptor.id), descriptor.npmPackage);
     const exists = existsSync(sdkPath);
     console.log('[sdk-loader] isCodexSdkAvailable:', {
         path: sdkPath,
@@ -143,20 +162,23 @@ export function isCodexSdkAvailable() {
 export async function loadClaudeSdk() {
     console.log('[DIAG-SDK] loadClaudeSdk() called');
 
+    const descriptor = getSdkDescriptor('claude');
+    const cacheKey = descriptor.cacheKey;
+
     // Return the cached SDK if available
-    if (sdkCache.has('claude')) {
+    if (sdkCache.has(cacheKey)) {
         console.log('[DIAG-SDK] Returning cached SDK');
-        return sdkCache.get('claude');
+        return sdkCache.get(cacheKey);
     }
 
     // If a load is already in progress, return the same promise to prevent duplicate loading
-    if (loadingPromises.has('claude')) {
+    if (loadingPromises.has(cacheKey)) {
         console.log('[DIAG-SDK] SDK loading in progress, returning existing promise');
-        return loadingPromises.get('claude');
+        return loadingPromises.get(cacheKey);
     }
 
-    const sdkRootDir = getSdkRootDir('claude-sdk');
-    const sdkPath = getPackageDirFromRoot(sdkRootDir, '@anthropic-ai/claude-agent-sdk');
+    const sdkRootDir = getSdkRootDir(descriptor.id);
+    const sdkPath = getPackageDirFromRoot(sdkRootDir, descriptor.npmPackage);
     console.log('[DIAG-SDK] SDK path:', sdkPath);
     console.log('[DIAG-SDK] SDK path exists:', existsSync(sdkPath));
 
@@ -171,28 +193,75 @@ export async function loadClaudeSdk() {
             console.log('[DIAG-SDK] SDK root dir:', sdkRootDir);
 
             // Node ESM does not support import(directory); must resolve to a concrete file (e.g. sdk.mjs)
-            const resolvedUrl = resolveExternalPackageUrl('@anthropic-ai/claude-agent-sdk', sdkRootDir);
+            const resolvedUrl = resolveExternalPackageUrl(descriptor.npmPackage, sdkRootDir);
             console.log('[DIAG-SDK] Resolved URL:', resolvedUrl);
 
             console.log('[DIAG-SDK] Starting dynamic import...');
             const sdk = await import(resolvedUrl);
             console.log('[DIAG-SDK] SDK imported successfully, exports:', Object.keys(sdk));
 
-            sdkCache.set('claude', sdk);
+            sdkCache.set(cacheKey, sdk);
             return sdk;
         } catch (error) {
             console.log('[DIAG-SDK] SDK import failed:', error.message);
-            const pkgDir = getPackageDirFromRoot(sdkRootDir, '@anthropic-ai/claude-agent-sdk');
+            const pkgDir = getPackageDirFromRoot(sdkRootDir, descriptor.npmPackage);
             const hintFile = join(pkgDir, 'sdk.mjs');
             const hint = existsSync(hintFile) ? ` Did you mean to import ${hintFile}?` : '';
             throw new Error(`Failed to load Claude SDK: ${error.message}${hint}`);
         } finally {
             // Clear the promise cache once loading is complete
-            loadingPromises.delete('claude');
+            loadingPromises.delete(cacheKey);
         }
     })();
 
-    loadingPromises.set('claude', loadPromise);
+    loadingPromises.set(cacheKey, loadPromise);
+    return loadPromise;
+}
+
+/**
+ * Dynamically load a provider's SDK, using the SDK descriptor the channel
+ * declared at registration.
+ * @param {string} provider - e.g. 'codex'
+ * @returns {Promise<object>} The loaded SDK module
+ * @throws {Error} If the SDK is not installed
+ */
+export async function loadSdk(provider) {
+    const descriptor = getSdkDescriptor(provider);
+    const cacheKey = descriptor.cacheKey;
+
+    // Return the cached SDK if available
+    if (sdkCache.has(cacheKey)) {
+        return sdkCache.get(cacheKey);
+    }
+
+    // If a load is already in progress, return the same promise to prevent duplicate loading
+    if (loadingPromises.has(cacheKey)) {
+        return loadingPromises.get(cacheKey);
+    }
+
+    const sdkRootDir = getSdkRootDir(descriptor.id);
+    const sdkPath = getPackageDirFromRoot(sdkRootDir, descriptor.npmPackage);
+
+    if (!existsSync(sdkPath)) {
+        throw new Error(`SDK_NOT_INSTALLED:${provider}`);
+    }
+
+    // Create and cache the loading promise
+    const loadPromise = (async () => {
+        try {
+            const resolvedUrl = resolveExternalPackageUrl(descriptor.npmPackage, sdkRootDir);
+            const sdk = await import(resolvedUrl);
+
+            sdkCache.set(cacheKey, sdk);
+            return sdk;
+        } catch (error) {
+            throw new Error(`Failed to load ${descriptor.displayName}: ${error.message}`);
+        } finally {
+            loadingPromises.delete(cacheKey);
+        }
+    })();
+
+    loadingPromises.set(cacheKey, loadPromise);
     return loadPromise;
 }
 
@@ -202,40 +271,7 @@ export async function loadClaudeSdk() {
  * @throws {Error} If the SDK is not installed
  */
 export async function loadCodexSdk() {
-    // Return the cached SDK if available
-    if (sdkCache.has('codex')) {
-        return sdkCache.get('codex');
-    }
-
-    // If a load is already in progress, return the same promise to prevent duplicate loading
-    if (loadingPromises.has('codex')) {
-        return loadingPromises.get('codex');
-    }
-
-    const sdkRootDir = getSdkRootDir('codex-sdk');
-    const sdkPath = getPackageDirFromRoot(sdkRootDir, '@openai/codex-sdk');
-
-    if (!existsSync(sdkPath)) {
-        throw new Error('SDK_NOT_INSTALLED:codex');
-    }
-
-    // Create and cache the loading promise
-    const loadPromise = (async () => {
-        try {
-            const resolvedUrl = resolveExternalPackageUrl('@openai/codex-sdk', sdkRootDir);
-            const sdk = await import(resolvedUrl);
-
-            sdkCache.set('codex', sdk);
-            return sdk;
-        } catch (error) {
-            throw new Error(`Failed to load Codex SDK: ${error.message}`);
-        } finally {
-            loadingPromises.delete('codex');
-        }
-    })();
-
-    loadingPromises.set('codex', loadPromise);
-    return loadPromise;
+    return loadSdk('codex');
 }
 
 /**
@@ -253,7 +289,7 @@ export async function loadAnthropicSdk() {
         return loadingPromises.get('anthropic');
     }
 
-    const sdkRootDir = getSdkRootDir('claude-sdk');
+    const sdkRootDir = getSdkRootDir(getSdkDescriptor('claude').id);
     const sdkPath = join(sdkRootDir, 'node_modules', '@anthropic-ai', 'sdk');
 
     if (!existsSync(sdkPath)) {
@@ -294,7 +330,7 @@ export async function loadBedrockSdk() {
         return loadingPromises.get('bedrock');
     }
 
-    const sdkRootDir = getSdkRootDir('claude-sdk');
+    const sdkRootDir = getSdkRootDir(getSdkDescriptor('claude').id);
     const sdkPath = join(sdkRootDir, 'node_modules', '@anthropic-ai', 'bedrock-sdk');
 
     if (!existsSync(sdkPath)) {
@@ -325,19 +361,18 @@ export async function loadBedrockSdk() {
  */
 export function getSdkStatus() {
     // Uses the same path resolution logic as DependencyManager
-    const claudeInstalled = isClaudeSdkAvailable();
-    const codexInstalled = isCodexSdkAvailable();
-
-    return {
-        claude: {
-            installed: claudeInstalled,
-            path: getPackageDirFromRoot(getSdkRootDir('claude-sdk'), '@anthropic-ai/claude-agent-sdk')
-        },
-        codex: {
-            installed: codexInstalled,
-            path: getPackageDirFromRoot(getSdkRootDir('codex-sdk'), '@openai/codex-sdk')
+    const status = {};
+    for (const provider of listChannels()) {
+        const descriptor = getChannelSdkDescriptor(provider);
+        if (!descriptor) {
+            continue;
         }
-    };
+        status[provider] = {
+            installed: isSdkAvailable(provider),
+            path: getPackageDirFromRoot(getSdkRootDir(descriptor.id), descriptor.npmPackage)
+        };
+    }
+    return status;
 }
 
 /**
@@ -354,17 +389,17 @@ export function clearSdkCache() {
  * @throws {Error} If the SDK is not installed
  */
 export function requireSdk(provider) {
-    if (provider === 'claude' && !isClaudeSdkAvailable()) {
-        const error = new Error('Claude Code SDK not installed. Please install via Settings > Dependencies.');
-        error.code = 'SDK_NOT_INSTALLED';
-        error.provider = 'claude';
-        throw error;
+    const descriptor = getChannelSdkDescriptor(provider);
+    // Unknown provider: nothing to require (legacy behavior for names other
+    // than claude/codex was a silent no-op).
+    if (!descriptor) {
+        return;
     }
 
-    if (provider === 'codex' && !isCodexSdkAvailable()) {
-        const error = new Error('Codex SDK not installed. Please install via Settings > Dependencies.');
+    if (!isSdkAvailable(provider)) {
+        const error = new Error(descriptor.notInstalledMessage);
         error.code = 'SDK_NOT_INSTALLED';
-        error.provider = 'codex';
+        error.provider = provider;
         throw error;
     }
 }

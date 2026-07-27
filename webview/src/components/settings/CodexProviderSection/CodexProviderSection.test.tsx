@@ -1,8 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CodexProviderSection from './index';
+import { sendToJava } from '../../../utils/bridge';
 import { SPECIAL_PROVIDER_IDS } from '../../../types/provider';
+
+vi.mock('../../../utils/bridge', () => ({
+  sendToJava: vi.fn(),
+  sendBridgeEvent: vi.fn(),
+}));
 
 const providerListStyles = readFileSync(
   'src/components/settings/ProviderList/style.module.less',
@@ -27,6 +33,30 @@ const translations: Record<string, string> = {
   'settings.provider.enable': 'Enable',
   'settings.provider.inUse': 'In Use',
   'settings.provider.dragToSort': 'Drag to sort',
+  'settings.provider.import': 'Import',
+  'settings.provider.importFromCcSwitchUpdate': 'Import/Update from cc-switch',
+  'settings.provider.importFromCcSwitchFile': 'Select cc-switch.db File to Import',
+  'settings.provider.readingCcSwitch': 'Reading cc-switch configuration...',
+  'settings.provider.editCcSwitchTitle': 'Edit cc-switch Configuration',
+  'settings.provider.editCcSwitchWarning': 'Editing does not update cc-switch.',
+  'settings.provider.continueEdit': 'Continue Editing',
+  'settings.provider.convertAndEdit': 'Convert and Edit',
+  'settings.provider.convertToPlugin': 'Convert to Plugin Configuration',
+  'settings.provider.convertConfirmMessage': 'Convert "{{name}}" to a plugin configuration?',
+  'settings.provider.convertDetailMessage': 'The cc-switch ID link will be disconnected.',
+  'settings.provider.confirmConvert': 'Confirm Conversion',
+  'settings.provider.convertSuccess': 'Converted to plugin configuration',
+  'settings.provider.importDialog.title': 'Import Providers',
+  'settings.provider.importDialog.summary': 'Total: {{total}}',
+  'settings.provider.importDialog.newCount': '{{count}} new',
+  'settings.provider.importDialog.updateCount': '{{count}} updated',
+  'settings.provider.importDialog.columnName': 'Name',
+  'settings.provider.importDialog.columnId': 'ID',
+  'settings.provider.importDialog.columnStatus': 'Status',
+  'settings.provider.importDialog.statusNew': 'New',
+  'settings.provider.importDialog.statusUpdate': 'Update',
+  'settings.provider.importDialog.selectedCount': 'Selected: {{count}}',
+  'settings.provider.importDialog.confirmImport': 'Confirm Import',
   'common.add': 'Add',
   'common.cancel': 'Cancel',
   'common.edit': 'Edit',
@@ -183,5 +213,129 @@ describe('CodexProviderSection', () => {
     expect(providerListStyles).toMatch(
       /\.website\s*\{[\s\S]*overflow:\s*hidden;[\s\S]*text-overflow:\s*ellipsis;[\s\S]*white-space:\s*nowrap;/
     );
+  });
+
+  it('requests codex cc-switch previews from the import menu', () => {
+    render(
+      <CodexProviderSection
+        codexProviders={[{ id: 'provider-1', name: 'Provider 1', isActive: false }]}
+        codexLoading={false}
+        onAddCodexProvider={onAddCodexProvider}
+        onEditCodexProvider={onEditCodexProvider}
+        onDeleteCodexProvider={onDeleteCodexProvider}
+        onSwitchCodexProvider={onSwitchCodexProvider}
+        onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    fireEvent.click(screen.getByText('Import/Update from cc-switch'));
+    expect(sendToJava).toHaveBeenCalledWith('preview_codex_cc_switch_import');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    fireEvent.click(screen.getByText('Select cc-switch.db File to Import'));
+    expect(sendToJava).toHaveBeenCalledWith('open_file_chooser_for_codex_cc_switch');
+  });
+
+  it('shows the cc-switch badge and warns before editing a cc-switch provider', () => {
+    const ccSwitchProvider = {
+      id: 'codex-main',
+      name: 'Codex Main',
+      isActive: false,
+      source: 'cc-switch',
+      configToml: 'model = "gpt-5"\n',
+      authJson: '{"OPENAI_API_KEY":"sk"}',
+    };
+
+    render(
+      <CodexProviderSection
+        codexProviders={[ccSwitchProvider]}
+        codexLoading={false}
+        onAddCodexProvider={onAddCodexProvider}
+        onEditCodexProvider={onEditCodexProvider}
+        onDeleteCodexProvider={onDeleteCodexProvider}
+        onSwitchCodexProvider={onSwitchCodexProvider}
+        onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+      />
+    );
+
+    expect(screen.getByText('cc-switch')).toBeTruthy();
+
+    fireEvent.click(screen.getByTitle('Edit'));
+    expect(screen.getByText('Edit cc-switch Configuration')).toBeTruthy();
+    expect(onEditCodexProvider).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue Editing' }));
+    expect(onEditCodexProvider).toHaveBeenCalledWith(ccSwitchProvider);
+  });
+
+  it('converts a cc-switch provider into a standalone plugin provider', () => {
+    const addToast = vi.fn();
+    const ccSwitchProvider = {
+      id: 'codex-main',
+      name: 'Codex Main',
+      isActive: false,
+      source: 'cc-switch',
+      configToml: 'model = "gpt-5"\n',
+      authJson: '{"OPENAI_API_KEY":"sk"}',
+    };
+
+    render(
+      <CodexProviderSection
+        codexProviders={[ccSwitchProvider]}
+        codexLoading={false}
+        onAddCodexProvider={onAddCodexProvider}
+        onEditCodexProvider={onEditCodexProvider}
+        onDeleteCodexProvider={onDeleteCodexProvider}
+        onSwitchCodexProvider={onSwitchCodexProvider}
+        onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+        addToast={addToast}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle('Convert to Plugin Configuration'));
+    expect(screen.getByText(/Convert "Codex Main" to a plugin configuration\?/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Conversion' }));
+
+    expect(sendToJava).toHaveBeenCalledWith('add_codex_provider', {
+      id: 'codex-main_local',
+      name: 'Codex Main (Local)',
+      isActive: false,
+      configToml: 'model = "gpt-5"\n',
+      authJson: '{"OPENAI_API_KEY":"sk"}',
+    });
+    expect(sendToJava).toHaveBeenCalledWith('delete_codex_provider', { id: 'codex-main' });
+    expect(addToast).toHaveBeenCalledWith('Converted to plugin configuration', 'success');
+  });
+
+  it('opens the import dialog on codex_import_preview_result and saves selected providers', () => {
+    render(
+      <CodexProviderSection
+        codexProviders={[]}
+        codexLoading={false}
+        onAddCodexProvider={onAddCodexProvider}
+        onEditCodexProvider={onEditCodexProvider}
+        onDeleteCodexProvider={onDeleteCodexProvider}
+        onSwitchCodexProvider={onSwitchCodexProvider}
+        onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+      />
+    );
+
+    const previewProviders = [
+      { id: 'codex-main', name: 'Codex Main', source: 'cc-switch', configToml: 'model = "gpt-5"\n' },
+    ];
+
+    act(() => {
+      window.codex_import_preview_result?.(JSON.stringify({ providers: previewProviders }));
+    });
+
+    expect(screen.getByText('Import Providers')).toBeTruthy();
+    expect(screen.getByText('Codex Main')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Import' }));
+    expect(sendToJava).toHaveBeenCalledWith('save_imported_codex_providers', {
+      providers: previewProviders,
+    });
   });
 });

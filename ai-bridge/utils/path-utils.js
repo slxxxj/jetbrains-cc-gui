@@ -38,11 +38,11 @@ export function getRealHomeDir() {
 }
 
 /**
- * Get the .codemoss configuration directory path.
- * @returns {string} The ~/.codemoss directory path
+ * Get the .codeaide configuration directory path.
+ * @returns {string} The ~/.codeaide directory path
  */
-export function getCodemossDir() {
-  return join(getRealHomeDir(), '.codemoss');
+export function getCodeaideDir() {
+  return join(getRealHomeDir(), '.codeaide');
 }
 
 /**

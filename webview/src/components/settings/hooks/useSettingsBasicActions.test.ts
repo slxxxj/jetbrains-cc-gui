@@ -4,6 +4,9 @@ import { useSettingsBasicActions } from './useSettingsBasicActions';
 import type { CommitAiConfig } from '../../../types/aiFeatureConfig';
 import type { CodeFontConfig } from '../../../types/uiFontConfig';
 
+/** Expected wire format: a JSON envelope {type, payload} (payload omitted when undefined). */
+const env = (type: string, payload?: unknown) => JSON.stringify({ type, payload });
+
 describe('useSettingsBasicActions', () => {
   const defaultCommitAiConfig: CommitAiConfig = {
     provider: null,
@@ -39,7 +42,7 @@ describe('useSettingsBasicActions', () => {
     expect(result.current.commitAiConfig.provider).toBe('claude');
     expect(result.current.promptEnhancerConfig).toEqual(promptEnhancerBefore);
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'set_commit_ai_config:{"provider":"claude","models":{"claude":"claude-sonnet-4-6","codex":"gpt-5.5"}}'
+      env('set_commit_ai_config', { provider: 'claude', models: { claude: 'claude-sonnet-4-6', codex: 'gpt-5.5' } })
     );
   });
 
@@ -64,7 +67,7 @@ describe('useSettingsBasicActions', () => {
     expect(result.current.commitAiConfig.models.codex).toBe('gpt-5.4');
     expect(result.current.promptEnhancerConfig).toEqual(promptEnhancerBefore);
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'set_commit_ai_config:{"provider":"codex","models":{"claude":"claude-sonnet-4-6","codex":"gpt-5.4"}}'
+      env('set_commit_ai_config', { provider: 'codex', models: { claude: 'claude-sonnet-4-6', codex: 'gpt-5.4' } })
     );
   });
 
@@ -76,10 +79,10 @@ describe('useSettingsBasicActions', () => {
     });
 
     expect(window.sendToJava).not.toHaveBeenCalledWith(
-      'set_ui_font_config:{"mode":"customFile"}'
+      env('set_ui_font_config', { mode: 'customFile' })
     );
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'set_code_font_config:{"mode":"followEditor"}'
+      env('set_code_font_config', { mode: 'followEditor' })
     );
   });
 
@@ -90,7 +93,7 @@ describe('useSettingsBasicActions', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/my-code-font.ttf',
-      fontFamily: 'CC GUI Code Custom',
+      fontFamily: 'CodeAide Code Custom',
       fontSize: 13,
       lineSpacing: 1,
     };
@@ -104,7 +107,7 @@ describe('useSettingsBasicActions', () => {
     });
 
     expect(window.sendToJava).toHaveBeenCalledWith(
-      'set_code_font_config:{"mode":"customFile","customFontPath":"/tmp/my-code-font.ttf"}'
+      env('set_code_font_config', { mode: 'customFile', customFontPath: '/tmp/my-code-font.ttf' })
     );
   });
 

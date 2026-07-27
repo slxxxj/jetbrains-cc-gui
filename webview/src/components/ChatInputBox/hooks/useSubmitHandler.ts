@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { Attachment } from '../types.js';
 import type { Dispatch, SetStateAction } from 'react';
+import { providerDisplayName } from '../../../utils/providerCapabilities.js';
 
 interface CompletionLike {
   close: () => void;
@@ -80,7 +81,7 @@ export function useSubmitHandler({
     if (!sdkInstalled) {
       addToast?.(
         t('chat.sdkNotInstalled', {
-          provider: currentProvider === 'codex' ? 'Codex' : 'Claude Code',
+          provider: providerDisplayName(currentProvider),
         }) +
           ' ' +
           t('chat.goInstallSdk'),

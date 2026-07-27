@@ -41,7 +41,7 @@ describe('ProviderSelect Codex quota submenu', () => {
     expect(codexRow.querySelector('.codicon-chevron-right')).toBeTruthy();
 
     fireEvent.mouseEnter(codexRow);
-    expect(window.sendToJava).toHaveBeenCalledWith('get_codex_subscription_quota:');
+    expect(window.sendToJava).toHaveBeenCalledWith(JSON.stringify({ type: 'get_codex_subscription_quota' }));
 
     act(() => {
       window.updateCodexSubscriptionQuota?.(JSON.stringify({

@@ -4,6 +4,7 @@ import type { CommitAiConfig, CommitAiProvider } from '../../../types/aiFeatureC
 import { DEFAULT_COMMIT_AI_CONFIG } from '../../../types/aiFeatureConfig';
 import AiFeatureProviderModelPanel from '../AiFeatureProviderModelPanel';
 import AiFeatureSettingsCard from '../AiFeatureSettingsCard';
+import { useCommitAgentConfig } from './useCommitAgentConfig';
 
 interface CommitSectionProps {
   commitAiConfig?: CommitAiConfig;
@@ -35,6 +36,13 @@ const CommitSection = ({
   savingProjectCommitPrompt,
 }: CommitSectionProps) => {
   const { t } = useTranslation();
+  const {
+    config: agentConfig,
+    updateBatchSize,
+    updateMaxParallel,
+    updateFastMode,
+    updateIncludeFileDetail,
+  } = useCommitAgentConfig();
 
   return (
     <div className={styles.configSection}>
@@ -53,6 +61,68 @@ const CommitSection = ({
           onResetToDefault={onCommitAiResetToDefault}
         />
       </AiFeatureSettingsCard>
+
+      {/* Parallel agents for large change sets */}
+      <div className={styles.promptSection}>
+        <div className={styles.fieldHeader}>
+          <span className="codicon codicon-rocket" />
+          <span className={styles.fieldLabel}>{t('settings.commit.agentConfig.label')}</span>
+        </div>
+        <div className={styles.agentConfigRow}>
+          <label className={styles.agentConfigLabel} htmlFor="commit-agent-batch-size">
+            {t('settings.commit.agentConfig.batchSize')}
+          </label>
+          <input
+            id="commit-agent-batch-size"
+            className={styles.agentNumberInput}
+            type="number"
+            min={1}
+            max={50}
+            value={agentConfig.batchSize}
+            onChange={(e) => updateBatchSize(Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.agentConfigRow}>
+          <label className={styles.agentConfigLabel} htmlFor="commit-agent-max-parallel">
+            {t('settings.commit.agentConfig.maxParallel')}
+          </label>
+          <input
+            id="commit-agent-max-parallel"
+            className={styles.agentNumberInput}
+            type="number"
+            min={1}
+            max={16}
+            value={agentConfig.maxParallel}
+            onChange={(e) => updateMaxParallel(Number(e.target.value))}
+          />
+        </div>
+        <div className={styles.agentConfigRow}>
+          <label className={styles.agentConfigLabel} htmlFor="commit-fast-mode">
+            {t('settings.commit.agentConfig.fastMode')}
+          </label>
+          <input
+            id="commit-fast-mode"
+            type="checkbox"
+            checked={agentConfig.fastMode}
+            onChange={(e) => updateFastMode(e.target.checked)}
+          />
+        </div>
+        <div className={styles.agentConfigRow}>
+          <label className={styles.agentConfigLabel} htmlFor="commit-include-file-detail">
+            {t('settings.commit.agentConfig.includeFileDetail')}
+          </label>
+          <input
+            id="commit-include-file-detail"
+            type="checkbox"
+            checked={agentConfig.includeFileDetail}
+            onChange={(e) => updateIncludeFileDetail(e.target.checked)}
+          />
+        </div>
+        <small className={styles.formHint}>
+          <span className="codicon codicon-info" />
+          <span>{t('settings.commit.agentConfig.hint')}</span>
+        </small>
+      </div>
 
       {/* Commit AI prompt configuration */}
       <div className={styles.promptSection}>

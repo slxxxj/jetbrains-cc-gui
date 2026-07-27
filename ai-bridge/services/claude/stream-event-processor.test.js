@@ -4,8 +4,10 @@ import {
   createTurnState,
   processMessageContent,
   processStreamEvent,
+  processSystemMessage,
   shouldOutputMessage,
 } from './stream-event-processor.js';
+import { initEmitter, emit } from '../../protocol/emitter.js';
 
 function makeTurnState(streamingEnabled = true) {
   return createTurnState(
@@ -14,24 +16,32 @@ function makeTurnState(streamingEnabled = true) {
   );
 }
 
+// Capture structured v2 envelopes emitted via protocol/emitter.js.
 function captureStdout(fn) {
-  const original = process.stdout.write.bind(process.stdout);
   const captured = [];
-  process.stdout.write = (chunk, ...rest) => {
-    const text = typeof chunk === 'string' ? chunk : chunk.toString();
-    captured.push(text);
-    return true;
-  };
+  initEmitter((obj) => captured.push(obj));
   try {
     fn();
   } finally {
-    process.stdout.write = original;
+    initEmitter(null);
   }
   return captured;
 }
 
+// Legacy tag name -> v2 envelope type. Tests still read the payload as a
+// JSON string, matching the shape the old [TAG] <json> lines carried.
+const TAG_TO_TYPE = {
+  '[MESSAGE]': 'message',
+  '[CONTENT_DELTA]': 'content_delta',
+  '[THINKING_DELTA]': 'thinking_delta',
+  '[BLOCK_RESET]': 'block_reset',
+};
+
 function tagLines(captured, tag) {
-  return captured.filter((line) => line.startsWith(tag));
+  const type = TAG_TO_TYPE[tag] || tag;
+  return captured
+    .filter((envelope) => envelope.type === type)
+    .map((envelope) => JSON.stringify(envelope.data));
 }
 
 test('shouldOutputMessage: streaming assistant without tool_use returns false', () => {
@@ -167,7 +177,7 @@ test('end-to-end: streaming pure-text response emits no [MESSAGE], no duplicate 
 
     // Replay persistent-query-service.executeTurn flow
     if (shouldOutputMessage(assistantMsg, state)) {
-      process.stdout.write(`[MESSAGE] ${JSON.stringify(assistantMsg)}\n`);
+      emit('message', assistantMsg);
     }
     processMessageContent(assistantMsg, state);
   });
@@ -212,7 +222,7 @@ test('end-to-end: streaming with tool_use emits one [MESSAGE] so Java can route 
     };
 
     if (shouldOutputMessage(assistantMsg, state)) {
-      process.stdout.write(`[MESSAGE] ${JSON.stringify(assistantMsg)}\n`);
+      emit('message', assistantMsg);
     }
     processMessageContent(assistantMsg, state);
   });
@@ -231,7 +241,7 @@ test('end-to-end: non-streaming pure-text response still emits [MESSAGE] (legacy
       message: { content: [{ type: 'text', text: 'Hello' }] },
     };
     if (shouldOutputMessage(assistantMsg, state)) {
-      process.stdout.write(`[MESSAGE] ${JSON.stringify(assistantMsg)}\n`);
+      emit('message', assistantMsg);
     }
   });
 
@@ -262,7 +272,7 @@ test('end-to-end: streaming tail-fill snapshot still triggers [CONTENT_DELTA] ev
     };
 
     if (shouldOutputMessage(assistantMsg, state)) {
-      process.stdout.write(`[MESSAGE] ${JSON.stringify(assistantMsg)}\n`);
+      emit('message', assistantMsg);
     }
     processMessageContent(assistantMsg, state);
   });
@@ -914,8 +924,8 @@ test('BLOCK_RESET: message_start emits [BLOCK_RESET] signal before subsequent de
   assert.equal(thinkingDeltaLines.length, 1, 'thinking delta must be emitted');
 
   // Verify ordering: BLOCK_RESET comes before THINKING_DELTA
-  const blockResetIdx = captured.findIndex((line) => line.startsWith('[BLOCK_RESET]'));
-  const thinkingDeltaIdx = captured.findIndex((line) => line.startsWith('[THINKING_DELTA]'));
+  const blockResetIdx = captured.findIndex((envelope) => envelope.type === 'block_reset');
+  const thinkingDeltaIdx = captured.findIndex((envelope) => envelope.type === 'thinking_delta');
   assert.ok(blockResetIdx < thinkingDeltaIdx, 'BLOCK_RESET must come before subsequent deltas');
 });
 
@@ -1161,4 +1171,172 @@ test('REGRESSION (#1371) companion: snapshot path absorbs incoming === previous 
   // Exactly two stream deltas emitted; snapshot replay added nothing.
   assert.equal(deltaLines.length, 2, `snapshot replay must not emit; got ${JSON.stringify(deltaLines)}`);
   assert.equal(emitted, 'Hello world', `accumulated content must remain "Hello world"; got "${emitted}"`);
+});
+
+// =========================================================================
+// TOOL_PREPARING SIGNAL TESTS.
+//
+// content_block_start with a tool_use block arrives BEFORE the (potentially
+// multi-second) input_json_delta argument stream and long before the complete
+// assistant snapshot renders the tool card. The processor forwards the tool
+// name once as a 'tool_preparing' envelope so the UI can show a hint during
+// the otherwise silent argument-generation phase.
+// =========================================================================
+
+test('TOOL_PREPARING: content_block_start with tool_use emits one tool_preparing envelope with name and index', () => {
+  const state = makeTurnState(true);
+
+  const captured = captureStdout(() => {
+    processStreamEvent(
+      { type: 'stream_event', event: { type: 'content_block_start', index: 1,
+        content_block: { type: 'tool_use', id: 'toolu_1', name: 'Write', input: {} } } },
+      state,
+    );
+  });
+
+  const lines = tagLines(captured, 'tool_preparing');
+  assert.equal(lines.length, 1, 'exactly one tool_preparing envelope must be emitted');
+  const payload = JSON.parse(lines[0]);
+  assert.equal(payload.name, 'Write');
+  assert.equal(payload.index, 1);
+});
+
+test('TOOL_PREPARING: content_block_start for text/thinking blocks does NOT emit tool_preparing', () => {
+  const state = makeTurnState(true);
+
+  const captured = captureStdout(() => {
+    processStreamEvent(
+      { type: 'stream_event', event: { type: 'content_block_start', index: 0,
+        content_block: { type: 'text', text: '' } } },
+      state,
+    );
+    processStreamEvent(
+      { type: 'stream_event', event: { type: 'content_block_start', index: 0,
+        content_block: { type: 'thinking', thinking: '' } } },
+      state,
+    );
+  });
+
+  assert.equal(tagLines(captured, 'tool_preparing').length, 0);
+});
+
+test('TOOL_PREPARING: input_json_delta fragments are NOT forwarded (noise), and emit nothing else', () => {
+  const state = makeTurnState(true);
+
+  const captured = captureStdout(() => {
+    processStreamEvent(
+      { type: 'stream_event', event: { type: 'content_block_start', index: 0,
+        content_block: { type: 'tool_use', id: 'toolu_1', name: 'Edit', input: {} } } },
+      state,
+    );
+    for (const partialJson of ['{"file_path', '": "/tmp/a.js",', ' "old_string": "x"}']) {
+      processStreamEvent(
+        { type: 'stream_event', event: { type: 'content_block_delta', index: 0,
+          delta: { type: 'input_json_delta', partial_json: partialJson } } },
+        state,
+      );
+    }
+  });
+
+  // Only the single tool_preparing envelope from content_block_start; the
+  // input_json_delta fragments must produce no envelopes at all.
+  assert.equal(captured.length, 1, JSON.stringify(captured));
+  assert.equal(captured[0].type, 'tool_preparing');
+  assert.equal(JSON.parse(JSON.stringify(captured[0].data)).name, 'Edit');
+});
+
+test('TOOL_PREPARING: missing tool name degrades to empty string instead of crashing', () => {
+  const state = makeTurnState(true);
+
+  const captured = captureStdout(() => {
+    processStreamEvent(
+      { type: 'stream_event', event: { type: 'content_block_start', index: 0,
+        content_block: { type: 'tool_use', id: 'toolu_1' } } },
+      state,
+    );
+  });
+
+  const lines = tagLines(captured, 'tool_preparing');
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).name, '');
+});
+
+// =========================================================================
+// COMPACT_STATUS SIGNAL TESTS.
+//
+// SDK declares (sdk.d.ts):
+//   - SDKStatusMessage {type:'system', subtype:'status',
+//     status:'compacting'|'requesting'|null} — compaction start/end.
+//   - SDKCompactBoundaryMessage {type:'system', subtype:'compact_boundary',
+//     compact_metadata:{trigger, pre_tokens, ...}} — post-compaction boundary.
+// processSystemMessage normalizes both into 'compact_status' envelopes.
+// =========================================================================
+
+test('COMPACT_STATUS: system/status with status=compacting emits compacting:true', () => {
+  const captured = captureStdout(() => {
+    processSystemMessage({ type: 'system', subtype: 'status', status: 'compacting', session_id: 's' });
+  });
+
+  const lines = tagLines(captured, 'compact_status');
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).compacting, true);
+});
+
+test('COMPACT_STATUS: system/status with non-compacting status emits compacting:false (end signal)', () => {
+  const captured = captureStdout(() => {
+    processSystemMessage({ type: 'system', subtype: 'status', status: 'requesting', session_id: 's' });
+    processSystemMessage({ type: 'system', subtype: 'status', status: null,
+      compact_result: 'success', session_id: 's' });
+  });
+
+  const lines = tagLines(captured, 'compact_status');
+  assert.equal(lines.length, 2);
+  assert.equal(JSON.parse(lines[0]).compacting, false);
+  assert.equal(JSON.parse(lines[1]).compacting, false);
+});
+
+test('COMPACT_STATUS: system/compact_boundary emits compacting:false with trigger metadata', () => {
+  const captured = captureStdout(() => {
+    processSystemMessage({
+      type: 'system',
+      subtype: 'compact_boundary',
+      compact_metadata: { trigger: 'auto', pre_tokens: 150000, post_tokens: 60000 },
+      session_id: 's',
+    });
+  });
+
+  const lines = tagLines(captured, 'compact_status');
+  assert.equal(lines.length, 1);
+  const payload = JSON.parse(lines[0]);
+  assert.equal(payload.compacting, false);
+  assert.equal(payload.trigger, 'auto');
+});
+
+test('COMPACT_STATUS: manual trigger is preserved; unknown trigger degrades to auto', () => {
+  const captured = captureStdout(() => {
+    processSystemMessage({
+      type: 'system', subtype: 'compact_boundary',
+      compact_metadata: { trigger: 'manual', pre_tokens: 10 }, session_id: 's',
+    });
+    processSystemMessage({
+      type: 'system', subtype: 'compact_boundary',
+      compact_metadata: { trigger: 'unexpected', pre_tokens: 10 }, session_id: 's',
+    });
+  });
+
+  const lines = tagLines(captured, 'compact_status');
+  assert.equal(JSON.parse(lines[0]).trigger, 'manual');
+  assert.equal(JSON.parse(lines[1]).trigger, 'auto');
+});
+
+test('COMPACT_STATUS: unrelated system subtypes (init etc.) and non-system messages are ignored', () => {
+  const captured = captureStdout(() => {
+    processSystemMessage({ type: 'system', subtype: 'init', session_id: 's' });
+    processSystemMessage({ type: 'system', session_id: 's' });
+    processSystemMessage({ type: 'assistant', message: { content: [] } });
+    processSystemMessage(null);
+    processSystemMessage(undefined);
+  });
+
+  assert.equal(tagLines(captured, 'compact_status').length, 0);
 });

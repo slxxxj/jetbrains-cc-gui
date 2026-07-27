@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { TFunction } from 'i18next';
 import type { MutableRefObject, RefObject } from 'react';
 import type { ClaudeMessage, ClaudeRawMessage, HistoryData, SubagentHistoryResponse } from '../types';
+import type { StreamingHint } from '../contexts/MessagesContext';
 import type { PermissionMode, SelectedAgent } from '../components/ChatInputBox/types';
 import type { ProviderConfig } from '../types/provider';
 import type { PermissionRequest } from '../components/PermissionDialog';
@@ -33,6 +34,7 @@ export interface UseWindowCallbacksOptions {
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>;
   setExpandedThinking?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setStreamingActive: React.Dispatch<React.SetStateAction<boolean>>;
+  setStreamingHint?: React.Dispatch<React.SetStateAction<StreamingHint | null>>;
   setHistoryData: React.Dispatch<React.SetStateAction<HistoryData | null>>;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   setUsagePercentage: React.Dispatch<React.SetStateAction<number>>;

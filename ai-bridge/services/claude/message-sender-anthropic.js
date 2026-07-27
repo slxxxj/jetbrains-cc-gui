@@ -10,6 +10,7 @@ import { resolveModelFromSettings } from '../../utils/model-utils.js';
 import { loadSessionHistory, persistJsonlMessage } from './session-service.js';
 import { ensureAnthropicSdk, ensureBedrockSdk, truncateErrorContent } from './message-utils.js';
 import { buildContentBlocks } from './attachment-service.js';
+import { emit } from '../../protocol/emitter.js';
 
 export async function sendMessageWithAnthropicSDK(message, resumeSessionId, cwd, permissionMode, model, apiKey, baseUrl, authType, attachments = []) {
   try {
@@ -73,8 +74,8 @@ export async function sendMessageWithAnthropicSDK(message, resumeSessionId, cwd,
       });
     }
 
-    console.log('[MESSAGE_START]');
-    console.log('[SESSION_ID]', sessionId);
+    emit('message_start');
+    emit('session_id', sessionId);
     console.log('[DEBUG] Using Anthropic SDK fallback for custom Base URL (non-streaming)');
     console.log('[DEBUG] Model:', modelId);
     console.log('[DEBUG] Base URL:', baseUrl);
@@ -110,7 +111,7 @@ export async function sendMessageWithAnthropicSDK(message, resumeSessionId, cwd,
       apiKeySource: 'ANTHROPIC_API_KEY',
       uuid: randomUUID()
     };
-    console.log('[MESSAGE]', JSON.stringify(systemMsg));
+    emit('message', systemMsg);
 
     console.log('[DEBUG] Calling messages.create() with non-streaming API...');
 
@@ -155,8 +156,8 @@ Possible causes:
         session_id: sessionId,
         uuid: randomUUID()
       };
-      console.log('[MESSAGE]', JSON.stringify(assistantMsg));
-      console.log('[CONTENT]', truncateErrorContent(errorContent[0].text));
+      emit('message', assistantMsg);
+      emit('content', truncateErrorContent(errorContent[0].text));
 
       const resultMsg = {
         type: 'result',
@@ -170,8 +171,8 @@ Possible causes:
         usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
         uuid: randomUUID()
       };
-      console.log('[MESSAGE]', JSON.stringify(resultMsg));
-      console.log('[MESSAGE_END]');
+      emit('message', resultMsg);
+      emit('message_end');
       console.log(JSON.stringify({ success: false, error: errorMsg }));
       return;
     }
@@ -198,7 +199,7 @@ Possible causes:
       session_id: sessionId,
       uuid: randomUUID()
     };
-    console.log('[MESSAGE]', JSON.stringify(assistantMsg));
+    emit('message', assistantMsg);
 
     persistJsonlMessage(sessionId, cwd, {
       type: 'assistant',
@@ -207,7 +208,7 @@ Possible causes:
 
     for (const block of respContent) {
       if (block.type === 'text') {
-        console.log('[CONTENT]', truncateErrorContent(block.text));
+        emit('content', truncateErrorContent(block.text));
       }
     }
 
@@ -228,13 +229,13 @@ Possible causes:
       },
       uuid: randomUUID()
     };
-    console.log('[MESSAGE]', JSON.stringify(resultMsg));
+    emit('message', resultMsg);
 
-    console.log('[MESSAGE_END]');
+    emit('message_end');
     console.log(JSON.stringify({ success: true, sessionId }));
 
   } catch (error) {
-    console.error('[SEND_ERROR]', error.message);
+    emit('send_error', { success: false, error: error?.message || String(error) });
     if (error.response) {
       console.error('[ERROR_DETAILS] Status:', error.response.status);
       console.error('[ERROR_DETAILS] Data:', JSON.stringify(error.response.data));

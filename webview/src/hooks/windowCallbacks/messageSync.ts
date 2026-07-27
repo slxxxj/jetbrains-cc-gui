@@ -8,6 +8,7 @@
 
 import type { MutableRefObject } from 'react';
 import type { ClaudeContentOrResultBlock, ClaudeMessage, ClaudeRawMessage } from '../../types';
+import { getProviderCapabilities } from '../../utils/providerCapabilities';
 
 /** Time window (ms) for matching optimistic messages with backend messages. */
 export const OPTIMISTIC_MESSAGE_TIME_WINDOW = 5000;
@@ -20,10 +21,7 @@ export const getStreamEndHandlingMode = (
   if (isStreaming || currentTurnId > 0) {
     return 'full';
   }
-  if (provider === 'codex') {
-    return 'minimal';
-  }
-  return 'skip';
+  return getProviderCapabilities(provider).idleStreamEndHandling;
 };
 
 // ---------------------------------------------------------------------------
@@ -508,7 +506,7 @@ export const stripDuplicateTrailingToolMessages = (
   nextList: ClaudeMessage[],
   provider: string,
 ): ClaudeMessage[] => {
-  if (provider !== 'codex') return nextList;
+  if (!getProviderCapabilities(provider).stripsDuplicateTrailingToolMessages) return nextList;
   if (nextList.length === 0) return nextList;
 
   // Pre-compute keys per message once, then use a reference-count map so we
@@ -576,9 +574,9 @@ export const preserveLatestMessagesOnShrink = (
   const hasStreamingTail = preservedTail.some((msg) => msg.type === 'assistant' && (msg.isStreaming || !!msg.__turnId));
   const hasUserTail = preservedTail.some((msg) => msg.type === 'user');
 
-  // Codex: always preserve shrink tail (handles compaction/summarization)
-  // Other providers: only preserve if tail contains streaming/recent messages
-  if (provider !== 'codex' && !hasStreamingTail && !hasUserTail) {
+  // Providers that compact history server-side always preserve the shrink tail;
+  // others only preserve if the tail contains streaming/recent messages
+  if (!getProviderCapabilities(provider).alwaysPreservesShrinkTail && !hasStreamingTail && !hasUserTail) {
     return nextList;
   }
 
@@ -735,6 +733,177 @@ export const ensureStreamingAssistantInList = (
   }
 
   return { list: resultList, streamingIndex: -1 };
+};
+
+// ---------------------------------------------------------------------------
+// Incremental upsert (streaming)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tool_result block ids carried by a message's raw content blocks.
+ * Used to deduplicate tool_result user messages appended via upsert.
+ */
+export const getToolResultIds = (message: ClaudeMessage | undefined): string[] => {
+  if (!message?.raw) return [];
+  let rawObj: unknown = message.raw;
+  if (typeof rawObj === 'string') {
+    try {
+      rawObj = JSON.parse(rawObj);
+    } catch {
+      return [];
+    }
+  }
+  if (!rawObj || typeof rawObj !== 'object') return [];
+  const rawRecord = rawObj as { content?: unknown; message?: { content?: unknown } };
+  const content = rawRecord.content ?? rawRecord.message?.content;
+  if (!Array.isArray(content)) return [];
+  const ids: string[] = [];
+  for (const block of content as Array<{ type?: string; tool_use_id?: string }>) {
+    if (block?.type === 'tool_result' && typeof block.tool_use_id === 'string' && block.tool_use_id) {
+      ids.push(block.tool_use_id);
+    }
+  }
+  return ids;
+};
+
+/** Streaming context the upsert reducer needs to locate the streaming bubble. */
+export interface UpsertStreamingContext {
+  isStreaming: boolean;
+  streamingTurnId: number;
+  streamingMessageIndex: number;
+}
+
+export interface UpsertResult {
+  list: ClaudeMessage[];
+  /** Updated streaming assistant index (unchanged when the upsert did not touch it). */
+  streamingMessageIndex: number;
+}
+
+const replaceAt = (list: ClaudeMessage[], index: number, message: ClaudeMessage): ClaudeMessage[] => {
+  const copy = [...list];
+  copy[index] = message;
+  return copy;
+};
+
+/**
+ * Preserve frontend-only fields when the backend re-sends a message that is
+ * already in the list: stable timestamp/uuid identity (via
+ * {@link preserveMessageIdentity}), streaming markers (__turnId / isStreaming)
+ * and the locally-computed durationMs.  Mirrors what the smart-merge in
+ * processUpdateMessages keeps across a full-list replacement.
+ */
+const preserveUpsertedFields = (prevMsg: ClaudeMessage, incoming: ClaudeMessage): ClaudeMessage => ({
+  ...preserveMessageIdentity(prevMsg, incoming),
+  ...(prevMsg.__turnId !== undefined ? { __turnId: prevMsg.__turnId } : {}),
+  ...(prevMsg.isStreaming ? { isStreaming: true } : {}),
+  ...(typeof prevMsg.durationMs === 'number' ? { durationMs: prevMsg.durationMs } : {}),
+});
+
+const upsertOne = (
+  list: ClaudeMessage[],
+  incoming: ClaudeMessage,
+  ctx: UpsertStreamingContext,
+  streamingMessageIndex: number,
+): UpsertResult => {
+  // 1. The streaming assistant bubble is identified by turn id / tracked index,
+  //    NOT by uuid: the frontend-created bubble has no uuid, while the backend's
+  //    merged assistant message may gain one mid-turn (and the full-update path
+  //    strips it again via preserveMessageIdentity).
+  if (incoming.type === 'assistant' && ctx.isStreaming) {
+    let idx = -1;
+    if (ctx.streamingTurnId > 0) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].type === 'assistant' && list[i].__turnId === ctx.streamingTurnId) {
+          idx = i;
+          break;
+        }
+      }
+    }
+    if (idx < 0 && streamingMessageIndex >= 0 && streamingMessageIndex < list.length
+        && list[streamingMessageIndex].type === 'assistant') {
+      idx = streamingMessageIndex;
+    }
+    const incomingUuid = getRawUuid(incoming);
+    if (idx < 0 && incomingUuid) {
+      idx = list.findIndex((m) => getRawUuid(m) === incomingUuid);
+    }
+    if (idx >= 0) {
+      return { list: replaceAt(list, idx, preserveUpsertedFields(list[idx], incoming)), streamingMessageIndex: idx };
+    }
+    // Bubble not in the list (e.g. cleared by a race): append the backend copy
+    // and adopt it as the streaming bubble, mirroring the full-update path
+    // which stamps __turnId on the trailing assistant.
+    const stamped: ClaudeMessage = ctx.streamingTurnId > 0
+      ? { ...incoming, isStreaming: true, __turnId: ctx.streamingTurnId }
+      : incoming;
+    return { list: [...list, stamped], streamingMessageIndex: list.length };
+  }
+
+  // 2. uuid identity (tool_result user messages echoed by the SDK, and any
+  //    assistant update arriving outside an active stream).
+  const uuid = getRawUuid(incoming);
+  if (uuid) {
+    const idx = list.findIndex((m) => getRawUuid(m) === uuid);
+    if (idx >= 0) {
+      return { list: replaceAt(list, idx, preserveUpsertedFields(list[idx], incoming)), streamingMessageIndex };
+    }
+    return { list: [...list, incoming], streamingMessageIndex };
+  }
+
+  // 3. tool_result messages without a uuid (synthesized by the Java layer from
+  //    the tool_result envelope): append, deduplicating by tool_use_id so a
+  //    repeated upsert cannot double-render a result card.
+  const incomingToolResultIds = getToolResultIds(incoming);
+  if (incomingToolResultIds.length > 0) {
+    const existing = new Set<string>();
+    for (const m of list) {
+      for (const id of getToolResultIds(m)) {
+        existing.add(id);
+      }
+    }
+    if (incomingToolResultIds.every((id) => existing.has(id))) {
+      return { list, streamingMessageIndex };
+    }
+    return { list: [...list, incoming], streamingMessageIndex };
+  }
+
+  // 4. Generic no-uuid message: refresh the tail entry when it is the same
+  //    message (type + content match), otherwise append.
+  const lastIndex = list.length - 1;
+  const last = list[lastIndex];
+  if (last && last.type === incoming.type && (last.content || '') === (incoming.content || '')) {
+    return { list: replaceAt(list, lastIndex, incoming), streamingMessageIndex };
+  }
+  return { list: [...list, incoming], streamingMessageIndex };
+};
+
+/**
+ * Apply incremental single-message updates ("upserts") to the message list.
+ *
+ * During streaming the backend pushes only the messages mutated in a throttle
+ * window (window.upsertMessage) instead of the full conversation.  Each
+ * upserted message is matched by streaming-bubble identity (assistant,
+ * mid-stream), uuid, tool_use_id (tool_result), or tail position, and either
+ * replaced in place or appended.  The result stays equivalent to the old
+ * full-list updateMessages path because the SAME preservation helpers run
+ * afterwards (preserveLastAssistantIdentity / preserveStreamingAssistantContent
+ * / finalizeMessageList in messageCallbacks), and the authoritative full
+ * snapshot still lands once at stream end.
+ */
+export const upsertMessagesIntoList = (
+  prevList: ClaudeMessage[],
+  incomingList: ClaudeMessage[],
+  ctx: UpsertStreamingContext,
+): UpsertResult => {
+  let list = prevList;
+  let streamingMessageIndex = ctx.streamingMessageIndex;
+  for (const incoming of incomingList) {
+    if (!incoming || typeof incoming !== 'object') continue;
+    const result = upsertOne(list, incoming, ctx, streamingMessageIndex);
+    list = result.list;
+    streamingMessageIndex = result.streamingMessageIndex;
+  }
+  return { list, streamingMessageIndex };
 };
 
 // ---------------------------------------------------------------------------

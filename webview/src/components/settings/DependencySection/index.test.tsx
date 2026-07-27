@@ -1,29 +1,21 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DependencySection from './index';
 
 const translations: Record<string, string> = {
   'settings.dependency.title': 'SDK 依赖管理',
-  'settings.dependency.description': '管理 AI SDK 依赖包。首次使用时需要安装对应的 SDK。',
-  'settings.dependency.installPolicyTip': '安装遇到问题？可将报错复制给终端 CLI AI 解决',
-  'settings.dependency.loading': '加载中',
+  'settings.dependency.description': '查看 AI SDK 依赖的安装状态。依赖由插件自动安装与更新，无需手动操作。',
+  'settings.dependency.installPolicyTip': 'SDK 依赖由插件自动安装与更新；失败会自动重试，详情可查看 IDE 日志。',
+  'settings.dependency.loading': '正在加载依赖状态...',
   'settings.dependency.claudeSdkName': 'Claude Code SDK',
   'settings.dependency.codexSdkName': 'Codex SDK',
   'settings.dependency.claudeSdkDescription': 'Claude AI 功能所需。包含 Claude Code SDK 及相关依赖。',
   'settings.dependency.codexSdkDescription': 'Codex AI 功能所需。包含 OpenAI Codex SDK。',
-  'settings.dependency.targetVersion': '目标版本',
-  'settings.dependency.loadingVersions': '版本列表加载中',
   'settings.dependency.installedVersion': '当前版本 {{version}}',
-  'settings.dependency.latestStableVersion': '最新稳定版 {{version}}',
-  'settings.dependency.installVersion': '安装 {{version}}',
-  'settings.dependency.install': '安装',
-  'settings.dependency.currentVersionAction': '当前版本',
-  'settings.dependency.updateToVersion': '更新到 {{version}}',
-  'settings.dependency.rollbackToVersion': '回退到 {{version}}',
-  'settings.dependency.uninstall': '卸载',
-  'settings.dependency.updateAvailable': '有更新',
-  'settings.dependency.rollbackWarning': '目标版本低于当前版本，将执行回退安装。',
-  'settings.dependency.targetVersionValue': '目标版本 {{version}}',
+  'settings.dependency.statusInstalled': '已安装',
+  'settings.dependency.statusNotInstalled': '未安装',
+  'settings.dependency.statusInstalling': '安装中…',
+  'settings.dependency.statusError': '安装失败，自动重试中',
 };
 
 vi.mock('react-i18next', () => ({
@@ -42,152 +34,95 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-describe('DependencySection', () => {
+const pushStatus = (status: unknown) => {
+  act(() => {
+    window.updateDependencyStatus?.(JSON.stringify(status));
+  });
+};
+
+describe('DependencySection (read-only)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.sendToJava = vi.fn();
-    window.__pendingDependencyUpdates = undefined;
-    window.__pendingDependencyVersions = undefined;
   });
 
-  it('removes the custom version input and keeps a compact version selector with actions', () => {
+  it('renders SDK names, versions and status badges without any interactive controls', () => {
     render(<DependencySection isActive={false} />);
 
-    act(() => {
-      window.updateDependencyStatus?.(JSON.stringify({
-        'claude-sdk': {
-          id: 'claude-sdk',
-          name: 'Claude Code SDK',
-          status: 'installed',
-          installedVersion: '0.2.89',
-          hasUpdate: false,
-        },
-        'codex-sdk': {
-          id: 'codex-sdk',
-          name: 'Codex SDK',
-          status: 'not_installed',
-          hasUpdate: false,
-        },
-      }));
-
-      window.dependencyVersionsLoaded?.(JSON.stringify({
-        'claude-sdk': {
-          sdkId: 'claude-sdk',
-          versions: ['0.2.89', '0.2.88'],
-          source: 'remote',
-          latestVersion: '0.2.89',
-        },
-        'codex-sdk': {
-          sdkId: 'codex-sdk',
-          versions: ['0.118.0', '0.117.0'],
-          source: 'remote',
-          latestVersion: '0.118.0',
-        },
-      }));
+    pushStatus({
+      'claude-sdk': {
+        id: 'claude-sdk',
+        name: 'Claude Code SDK',
+        status: 'installed',
+        installedVersion: '0.2.89',
+      },
+      'codex-sdk': {
+        id: 'codex-sdk',
+        name: 'Codex SDK',
+        status: 'not_installed',
+      },
     });
 
-    expect(screen.queryByText('自定义版本')).toBeNull();
-    expect(screen.getAllByText('目标版本')).toHaveLength(2);
+    expect(screen.getByText('Claude Code SDK')).toBeTruthy();
+    expect(screen.getByText('Codex SDK')).toBeTruthy();
+    expect(screen.getByText('v0.2.89')).toBeTruthy();
+    expect(screen.getByText('已安装')).toBeTruthy();
+    expect(screen.getByText('未安装')).toBeTruthy();
+
+    // No install/uninstall/update buttons, no version selector, no listbox
+    expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.getByRole('button', { name: '目标版本 v0.2.89' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '目标版本 v0.118.0' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '当前版本' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: '卸载' })).toHaveLength(1);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByText('目标版本')).toBeNull();
   });
 
-  it('opens an app-controlled version list with the latest version reachable first', () => {
+  it('shows installing and error (auto-retry) states from the status payload', () => {
     render(<DependencySection isActive={false} />);
 
-    act(() => {
-      window.updateDependencyStatus?.(JSON.stringify({
-        'claude-sdk': {
-          id: 'claude-sdk',
-          name: 'Claude Code SDK',
-          status: 'installed',
-          installedVersion: '0.2.88',
-          hasUpdate: true,
-          latestVersion: '0.2.90',
-        },
-        'codex-sdk': {
-          id: 'codex-sdk',
-          name: 'Codex SDK',
-          status: 'not_installed',
-          hasUpdate: false,
-        },
-      }));
-
-      window.dependencyVersionsLoaded?.(JSON.stringify({
-        'claude-sdk': {
-          sdkId: 'claude-sdk',
-          versions: ['0.2.90', '0.2.89', '0.2.88'],
-          source: 'remote',
-          latestVersion: '0.2.90',
-        },
-        'codex-sdk': {
-          sdkId: 'codex-sdk',
-          versions: ['0.118.0', '0.117.0'],
-          source: 'remote',
-          latestVersion: '0.118.0',
-        },
-      }));
+    pushStatus({
+      'claude-sdk': {
+        id: 'claude-sdk',
+        name: 'Claude Code SDK',
+        status: 'installing',
+      },
+      'codex-sdk': {
+        id: 'codex-sdk',
+        name: 'Codex SDK',
+        status: 'error',
+        errorMessage: 'npm registry unreachable',
+      },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '目标版本 v0.2.88' }));
-
-    const listbox = screen.getByRole('listbox', { name: '目标版本' });
-    expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'v0.2.90',
-      'v0.2.89',
-      'v0.2.88',
-    ]);
-
-    fireEvent.click(within(listbox).getByRole('option', { name: 'v0.2.90' }));
-
-    expect(screen.getByRole('button', { name: '目标版本 v0.2.90' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '更新到 v0.2.90' })).toBeTruthy();
+    expect(screen.getByText('安装中…')).toBeTruthy();
+    expect(screen.getByText('安装失败，自动重试中')).toBeTruthy();
+    expect(screen.getByText('npm registry unreachable')).toBeTruthy();
   });
 
-  it('shows a loading hint while version options are still being fetched', () => {
+  it('requests only get_dependency_status when the tab becomes active', () => {
     render(<DependencySection isActive />);
 
-    act(() => {
-      window.updateDependencyStatus?.(JSON.stringify({
-        'claude-sdk': {
-          id: 'claude-sdk',
-          name: 'Claude Code SDK',
-          status: 'installed',
-          installedVersion: '0.2.89',
-          hasUpdate: false,
-        },
-        'codex-sdk': {
-          id: 'codex-sdk',
-          name: 'Codex SDK',
-          status: 'not_installed',
-          hasUpdate: false,
-        },
-      }));
+    const sentTypes = (window.sendToJava as ReturnType<typeof vi.fn>).mock.calls
+      .map(([payload]) => JSON.parse(payload as string).type);
+
+    expect(sentTypes).toContain('get_dependency_status');
+    expect(sentTypes).not.toContain('install_dependency');
+    expect(sentTypes).not.toContain('uninstall_dependency');
+    expect(sentTypes).not.toContain('update_dependency');
+    expect(sentTypes).not.toContain('get_dependency_versions');
+    expect(sentTypes).not.toContain('check_dependency_updates');
+  });
+
+  it('stays on the loading state until a status payload arrives', () => {
+    render(<DependencySection isActive={false} />);
+
+    expect(screen.getByText('正在加载依赖状态...')).toBeTruthy();
+
+    pushStatus({
+      'claude-sdk': { id: 'claude-sdk', name: 'Claude Code SDK', status: 'installed', installedVersion: '0.2.89' },
+      'codex-sdk': { id: 'codex-sdk', name: 'Codex SDK', status: 'installed', installedVersion: '0.118.0' },
     });
 
-    expect(screen.getAllByText('版本列表加载中').length).toBeGreaterThan(0);
-    expect(window.sendToJava).toHaveBeenCalledWith('get_dependency_versions:');
-
-    act(() => {
-      window.dependencyVersionsLoaded?.(JSON.stringify({
-        'claude-sdk': {
-          sdkId: 'claude-sdk',
-          versions: ['0.2.89', '0.2.88'],
-          source: 'remote',
-          latestVersion: '0.2.89',
-        },
-        'codex-sdk': {
-          sdkId: 'codex-sdk',
-          versions: ['0.118.0', '0.117.0'],
-          source: 'remote',
-          latestVersion: '0.118.0',
-        },
-      }));
-    });
-
-    expect(screen.queryByText('版本列表加载中')).toBeNull();
+    expect(screen.queryByText('正在加载依赖状态...')).toBeNull();
+    expect(screen.getAllByText('已安装')).toHaveLength(2);
   });
 });

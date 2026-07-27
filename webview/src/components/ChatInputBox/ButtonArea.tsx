@@ -1,66 +1,13 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
-import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect } from './selectors';
-import { CLAUDE_MODELS, CODEX_MODELS } from './types';
-import { STORAGE_KEYS, validateCodexCustomModels } from '../../types/provider';
-import type { CodexCustomModel } from '../../types/provider';
+import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect, SubagentModelSelect } from './selectors';
+import { STORAGE_KEYS } from '../../types/provider';
 import { readClaudeModelMapping } from '../../utils/claudeModelMapping';
-
-/**
- * Get custom Codex model list from localStorage
- * Uses runtime type validation for data safety
- */
-function getCustomCodexModels(): ModelInfo[] {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return [];
-  }
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEYS.CODEX_CUSTOM_MODELS);
-    if (!stored) {
-      return [];
-    }
-    const parsed = JSON.parse(stored);
-    // Use runtime type validation
-    const validModels = validateCodexCustomModels(parsed);
-    return validModels.map(m => ({
-      id: m.id,
-      label: m.label || m.id,
-      description: m.description,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Get custom Claude model list from localStorage
- * Uses runtime type validation for data safety
- */
-function getCustomClaudeModels(): ModelInfo[] {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return [];
-  }
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEYS.CLAUDE_CUSTOM_MODELS);
-    if (!stored) {
-      return [];
-    }
-    const parsed = JSON.parse(stored) as CodexCustomModel[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .filter((m): m is CodexCustomModel => !!m && typeof m === 'object' && typeof m.id === 'string' && m.id.trim().length > 0)
-      .map(m => ({
-        id: m.id,
-        label: m.label || m.id,
-        description: m.description,
-      }));
-  } catch {
-    return [];
-  }
-}
+import { getProviderCapabilities, isKnownProvider } from '../../utils/providerCapabilities';
+import { mergeModelLists } from '../../utils/availableModelsStore';
+import { useAvailableModels } from '../../hooks/useAvailableModels';
+import { useProviderCustomModels } from '../../hooks/useProviderCustomModels';
 
 /**
  * ButtonArea - Bottom toolbar component
@@ -76,6 +23,7 @@ export const ButtonArea = ({
   currentProvider = 'claude',
   reasoningEffort = 'high',
   codexFastMode = 'normal',
+  subagentModel = '',
   onSubmit,
   onStop,
   onModeSelect,
@@ -83,6 +31,7 @@ export const ButtonArea = ({
   onProviderSelect,
   onReasoningChange,
   onCodexFastModeChange,
+  onSubagentModelSelect,
   onEnhancePrompt,
   alwaysThinkingEnabled = false,
   onToggleThinking,
@@ -98,22 +47,29 @@ export const ButtonArea = ({
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Track changes to custom models in localStorage
+  const providerKind = isKnownProvider(currentProvider) ? currentProvider : 'claude';
+
+  // Dynamic model list (backend-fetched, with built-in fallback) and the
+  // active provider entry's custom models (legacy localStorage fallback).
+  const { models: dynamicModels, refresh: refreshAvailableModels } = useAvailableModels(providerKind);
+  const { models: providerCustomModels } = useProviderCustomModels(providerKind);
+
+  // Track changes to the Claude model mapping in localStorage.
   // When localStorage changes, updating this version number triggers useMemo recalculation
-  const [customModelsVersion, setCustomModelsVersion] = useState(0);
+  const [modelMappingVersion, setModelMappingVersion] = useState(0);
 
   // Listen for localStorage changes (cross-tab sync + same-tab custom events)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.CODEX_CUSTOM_MODELS || e.key === STORAGE_KEYS.CLAUDE_MODEL_MAPPING || e.key === STORAGE_KEYS.CLAUDE_CUSTOM_MODELS) {
-        setCustomModelsVersion(v => v + 1);
+      if (e.key === STORAGE_KEYS.CLAUDE_MODEL_MAPPING) {
+        setModelMappingVersion(v => v + 1);
       }
     };
 
     // Listen for custom events (localStorage changes within the same tab)
     const handleCustomStorageChange = (e: CustomEvent<{ key: string }>) => {
-      if (e.detail.key === STORAGE_KEYS.CODEX_CUSTOM_MODELS || e.detail.key === STORAGE_KEYS.CLAUDE_MODEL_MAPPING || e.detail.key === STORAGE_KEYS.CLAUDE_CUSTOM_MODELS) {
-        setCustomModelsVersion(v => v + 1);
+      if (e.detail.key === STORAGE_KEYS.CLAUDE_MODEL_MAPPING) {
+        setModelMappingVersion(v => v + 1);
       }
     };
 
@@ -151,46 +107,36 @@ export const ButtonArea = ({
     return model;
   }, []);
 
-  // Select model list based on current provider
-  // customModelsVersion triggers recalculation when localStorage changes
+  // Select model list based on current provider capabilities.
+  // Three layers merged by id (earlier wins): the active provider entry's
+  // custom models first, then the dynamic backend-fetched list, then the
+  // built-in fallback list. modelMappingVersion triggers recalculation when
+  // the Claude model mapping changes in localStorage.
   const availableModels = useMemo(() => {
-    if (currentProvider === 'codex') {
-      // Merge built-in models and custom models
-      const customModels = getCustomCodexModels();
-      if (customModels.length === 0) {
-        return CODEX_MODELS;
+    const capabilities = getProviderCapabilities(providerKind);
+
+    // Dynamic models when available (source === 'dynamic'); the built-in list
+    // stays as fallback for ids the dynamic list does not know about.
+    let baseModels = mergeModelLists(dynamicModels, capabilities.models);
+    if (capabilities.appliesModelMapping) {
+      try {
+        const mapping = readClaudeModelMapping();
+        if (Object.keys(mapping).length > 0) {
+          baseModels = baseModels.map((m) => applyModelMapping(m, mapping));
+        }
+      } catch {
+        // ignore
       }
-      // Custom models first, built-in models after
-      // Filter out built-in models that duplicate custom models
-      const customIds = new Set(customModels.map(m => m.id));
-      const filteredBuiltIn = CODEX_MODELS.filter(m => !customIds.has(m.id));
-      return [...customModels, ...filteredBuiltIn];
-    }
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return CLAUDE_MODELS;
     }
 
-    // Apply model mapping to built-in models
-    let builtInModels = CLAUDE_MODELS;
-    try {
-      const mapping = readClaudeModelMapping();
-      if (Object.keys(mapping).length > 0) {
-        builtInModels = CLAUDE_MODELS.map((m) => applyModelMapping(m, mapping));
-      }
-    } catch {
-      // ignore
-    }
-
-    // Merge custom models (displayed before built-in models)
-    const customModels = getCustomClaudeModels();
-    if (customModels.length === 0) {
-      return builtInModels;
-    }
-    // Filter out built-in models that duplicate custom models
-    const customIds = new Set(customModels.map(m => m.id));
-    const filteredBuiltIn = builtInModels.filter(m => !customIds.has(m.id));
-    return [...customModels, ...filteredBuiltIn];
-  }, [currentProvider, applyModelMapping, customModelsVersion]);
+    // Custom models are displayed before all others.
+    const customModels: ModelInfo[] = providerCustomModels.map((m) => ({
+      id: m.id,
+      label: m.label || m.id,
+      description: m.description,
+    }));
+    return mergeModelLists(customModels, baseModels);
+  }, [providerKind, dynamicModels, providerCustomModels, applyModelMapping, modelMappingVersion]);
 
   /**
    * Handle submit button click
@@ -244,6 +190,13 @@ export const ButtonArea = ({
   }, [onCodexFastModeChange]);
 
   /**
+   * Handle subagent model selection ('' = default, follow the main model)
+   */
+  const handleSubagentModelSelect = useCallback((modelId: string) => {
+    onSubagentModelSelect?.(modelId);
+  }, [onSubagentModelSelect]);
+
+  /**
    * Handle enhance prompt button click
    */
   const handleEnhanceClick = useCallback((e: React.MouseEvent) => {
@@ -271,9 +224,10 @@ export const ButtonArea = ({
           compact
         />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
-        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} />
+        <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} onRefreshModels={refreshAvailableModels} />
+        <SubagentModelSelect value={subagentModel} onChange={handleSubagentModelSelect} models={availableModels} currentProvider={currentProvider} />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
-        {currentProvider === 'codex' && (
+        {getProviderCapabilities(currentProvider).supportsServiceTier && (
           <CodexFastModeSelect value={codexFastMode} onChange={handleCodexFastModeChange} />
         )}
       </div>

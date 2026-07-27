@@ -13,6 +13,7 @@ import { setupSlashCommandsCallback } from './components/ChatInputBox/providers/
 import { setupDollarCommandsCallback } from './components/ChatInputBox/providers/dollarCommandProvider';
 import { applyLinkifyCapabilitiesPayload } from './utils/linkifyCapabilities';
 import { installRuntimeProviderDispatchers } from './utils/runtimeProviderCapabilities';
+import { installAvailableModelsDispatcher } from './utils/availableModelsStore';
 import { sendBridgeEvent } from './utils/bridge';
 import { debugLog } from './utils/debug';
 import type { UiFontConfig, CodeFontConfig } from './types/uiFontConfig';
@@ -33,6 +34,10 @@ if (!import.meta.env.DEV) {
 // through a deterministic subscriber registry instead of overriding
 // `window.update*Provider*` callbacks ad-hoc.
 installRuntimeProviderDispatchers();
+
+// Install the available-models dispatcher early so backend pushes of
+// `window.updateAvailableModels` (dynamic model lists) are never lost.
+installAvailableModelsDispatcher();
 
 function createBridgeHeartbeatStarter() {
   let started = false;
@@ -258,8 +263,8 @@ let latestEditorFontConfig: {
 let latestUiFontConfig: UiFontConfig | null = null;
 let latestCodeFontConfig: CodeFontConfig | null = null;
 
-const UI_FONT_STYLE_ELEMENT_ID = 'cc-gui-ui-font-face-style';
-const CODE_FONT_STYLE_ELEMENT_ID = 'cc-gui-code-font-face-style';
+const UI_FONT_STYLE_ELEMENT_ID = 'codeaide-ui-font-face-style';
+const CODE_FONT_STYLE_ELEMENT_ID = 'codeaide-code-font-face-style';
 
 function escapeCssFontName(name: string): string {
   return name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -373,7 +378,7 @@ function setCodeFontFaceStyle(config: CodeFontConfig) {
 function syncFontFamilies() {
   const root = document.documentElement;
   if (latestUiFontConfig) {
-    root.style.setProperty('--cc-gui-ui-font-family', buildFontFamilyValue({
+    root.style.setProperty('--codeaide-ui-font-family', buildFontFamilyValue({
       fontFamily: latestUiFontConfig.fontFamily,
       fallbackFonts: latestUiFontConfig.fallbackFonts,
     }, { appendMonospaceFallback: false, appendSansSerifFallback: true }));
@@ -385,7 +390,7 @@ function syncFontFamilies() {
       fontFamily: codeSourceConfig.fontFamily,
       fallbackFonts: codeSourceConfig.fallbackFonts ?? latestEditorFontConfig?.fallbackFonts,
     });
-    root.style.setProperty('--cc-gui-code-font-family', codeFontFamilyValue);
+    root.style.setProperty('--codeaide-code-font-family', codeFontFamilyValue);
     // Keep legacy variable in sync so existing components continue to pick up the effective code font.
     root.style.setProperty('--idea-editor-font-family', codeFontFamilyValue);
   }
@@ -399,7 +404,7 @@ function applyEditorTypographyConfig(config: {
 }) {
   const root = document.documentElement;
   latestEditorFontConfig = config;
-  root.style.setProperty('--cc-gui-editor-font-family', buildFontFamilyValue(config));
+  root.style.setProperty('--codeaide-editor-font-family', buildFontFamilyValue(config));
   root.style.setProperty('--idea-editor-font-size', `${config.fontSize}px`);
   root.style.setProperty('--idea-editor-line-spacing', String(config.lineSpacing));
   syncFontFamilies();
@@ -587,15 +592,6 @@ if (typeof window !== 'undefined' && !window.updateDependencyStatus) {
   };
 }
 
-// Pre-register dependencyUpdateAvailable to handle backend update checks that arrive before Settings/React initializes
-if (typeof window !== 'undefined' && !window.dependencyUpdateAvailable) {
-  debugLog('[Main] Pre-registering dependencyUpdateAvailable placeholder');
-  window.dependencyUpdateAvailable = (json: string) => {
-    debugLog('[Main] Storing pending dependency updates, length=' + (json ? json.length : 0));
-    window.__pendingDependencyUpdates = json;
-  };
-}
-
 // Pre-register updateStreamingEnabled to handle backend status responses that arrive before React initializes
 if (typeof window !== 'undefined' && !window.updateStreamingEnabled) {
   debugLog('[Main] Pre-registering updateStreamingEnabled placeholder');
@@ -694,7 +690,7 @@ ReactDOM.createRoot(document.getElementById('app') as HTMLElement).render(
  */
 setupScaleRecovery();
 
-function waitForBridge(callback: () => void, maxAttempts = 50, interval = 100) {
+function waitForBridge(callback: () => void, maxAttempts = 50, interval = 100, retryInterval = 5000) {
   let attempts = 0;
 
   const check = () => {
@@ -705,7 +701,13 @@ function waitForBridge(callback: () => void, maxAttempts = 50, interval = 100) {
     } else if (attempts < maxAttempts) {
       setTimeout(check, interval);
     } else {
-      console.error('[Main] Bridge not available after ' + maxAttempts + ' attempts');
+      // Do not give up silently: without the bridge no frontend_ready is ever
+      // sent, the Java-side watchdog would keep recovering into the same dead
+      // page, and a late bridge injection (slow JCEF load) would be wasted.
+      // Keep retrying at a slow cadence until the bridge appears.
+      console.error('[Main] Bridge not available after ' + maxAttempts + ' attempts, retrying every ' + retryInterval + 'ms');
+      attempts = 0;
+      setTimeout(check, retryInterval);
     }
   };
 

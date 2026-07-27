@@ -30,6 +30,7 @@ import {
 } from './codex-utils.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
 import { createInitialEventState, processCodexEventStream } from './codex-event-handler.js';
+import { emit } from '../../protocol/emitter.js';
 
 // ---------------------------------------------------------------------------
 // sendMessage
@@ -68,7 +69,7 @@ export async function sendMessage(
       return;
     }
     streamEnded = true;
-    console.log('[STREAM_END]');
+    emit('stream_end');
   };
 
   try {
@@ -86,7 +87,7 @@ export async function sendMessage(
       attachmentsCount: attachments?.length || 0
     });
 
-    console.log('[MESSAGE_START]');
+    emit('message_start');
 
     // ============================================================
     // 1. Initialize Codex SDK (dynamic loading)
@@ -253,7 +254,7 @@ export async function sendMessage(
     const { events } = await thread.runStreamed(runInput, {
       signal: turnAbortController.signal
     });
-    console.log('[STREAM_START]');
+    emit('stream_start');
     streamStarted = true;
 
     // ============================================================
@@ -263,7 +264,7 @@ export async function sendMessage(
     const workingDirectory = cwd && cwd.trim() !== '' ? cwd : undefined;
 
     const emitMessage = (msg) => {
-      console.log('[MESSAGE]', JSON.stringify(msg));
+      emit('message', msg);
     };
 
     const state = createInitialEventState(emitMessage);
@@ -312,7 +313,7 @@ export async function sendMessage(
       state.finalResponse = noResponseMsg;
     }
 
-    console.log('[MESSAGE_END]');
+    emit('message_end');
     console.log(JSON.stringify({
       success: true,
       threadId: state.currentThreadId,
@@ -325,7 +326,7 @@ export async function sendMessage(
     console.error('[DEBUG] Error stack:', error.stack);
 
     const errorPayload = buildErrorPayload(error);
-    console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+    emit('send_error', errorPayload);
     console.log(JSON.stringify(errorPayload));
   }
 }

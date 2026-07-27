@@ -15,6 +15,7 @@ import {
   sliceLatestConversationTurn,
 } from '../utils/turnScope';
 import { FILE_MODIFY_TOOL_NAMES, isToolName } from '../utils/toolConstants';
+import { getProviderCapabilities } from '../utils/providerCapabilities';
 import { useSubagents } from './useSubagents';
 import { useFileChanges } from './useFileChanges';
 import { useFileChangesManagement } from './useFileChangesManagement';
@@ -176,7 +177,7 @@ export function useChatComputations({
   );
 
   const rewindableMessages = useMemo((): RewindableMessage[] => {
-    if (currentProvider !== 'claude') return [];
+    if (!getProviderCapabilities(currentProvider).supportsRewind) return [];
     const result: RewindableMessage[] = [];
     for (let i = 0; i < mergedMessages.length - 1; i++) {
       if (!canRewindFromMessageIndex(i)) continue;

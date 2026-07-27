@@ -82,7 +82,7 @@ Handles all `window.xxx` callback registrations for Java bridge communication.
 
 **Responsibilities:**
 - Message callbacks (updateMessages, clearMessages, addErrorMessage)
-- Streaming callbacks (onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd)
+- Streaming callbacks (onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd, onBlockReset, onStreamingHeartbeat, onToolPreparing, onCompactStatus)
 - Status callbacks (updateStatus, showLoading, showThinkingStatus)
 - Settings callbacks (onUsageUpdate, onModeChanged, onModelChanged)
 - Dialog callbacks (showPermissionDialog, showAskUserQuestionDialog)

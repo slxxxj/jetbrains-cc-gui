@@ -13,6 +13,7 @@ import {
   type NodeProcessInfo,
   type NodeProcessSnapshot,
 } from '../../../utils/nodeProcessCapabilities';
+import { getProviderCapabilities } from '../../../utils/providerCapabilities';
 
 interface NodeProcessSelectProps {
   embedded?: boolean;
@@ -256,9 +257,7 @@ function formatBytes(bytes: number): string {
 
 function providerIcon(provider?: string, kind?: string): string {
   if (kind === 'ORPHAN') return 'codicon-warning';
-  if (provider === 'claude') return 'codicon-server-process';
-  if (provider === 'codex') return 'codicon-comment-discussion';
-  return 'codicon-debug-disconnect';
+  return getProviderCapabilities(provider).processIcon;
 }
 
 function kindColor(kind: string): string {

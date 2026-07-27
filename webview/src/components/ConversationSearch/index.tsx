@@ -19,7 +19,7 @@ import { useConversationSearch, DEFAULT_SEARCH_OPTIONS } from '../../hooks/useCo
 import type { SearchOptions } from '../../hooks/useConversationSearch';
 import type { MessageListRevealHandle } from './types';
 
-const STORAGE_KEY = 'cc-gui.search.options';
+const STORAGE_KEY = 'codeaide.search.options';
 
 /** Read persisted options from localStorage. Bad data → defaults. */
 function loadStoredOptions(): SearchOptions {

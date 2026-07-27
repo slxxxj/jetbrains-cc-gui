@@ -1,6 +1,11 @@
 /**
- * File-system IPC primitives for permission communication with Java process.
- * Handles request/response file exchange for permissions, questions, and plan approval.
+ * Permission IPC primitives for communicating with the Java process.
+ * Handles permissions, questions, and plan approval in two modes:
+ * - Daemon mode: out-of-band NDJSON envelopes over the daemon's existing
+ *   stdin/stdout channel (see "Daemon out-of-band permission channel" below).
+ * - Per-process fallback: request/response file exchange (channel-manager
+ *   spawns a short-lived process without a persistent channel, so the file
+ *   protocol remains the only option there).
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync, readdirSync, mkdirSync } from 'fs';
 import { join } from 'path';
@@ -95,6 +100,175 @@ export const PERMISSION_REQUEST_SAFETY_NET_MS = resolvePermissionRequestSafetyNe
   process.env.CLAUDE_PERMISSION_SAFETY_NET_MS
 );
 
+// ========== Daemon out-of-band permission channel ==========
+//
+// In daemon mode, permission requests ride the daemon's existing NDJSON
+// channel instead of the file-system protocol:
+//   Node -> Java: {"type":"permission_request","requestId":"...","payload":{kind,...}}
+//   Java -> Node: {"type":"permission_response","requestId":"...","decision":{...}}
+// daemon.js injects the sender at startup via initDaemonPermissionChannel()
+// and routes inbound permission_response messages (which bypass the command
+// queue, like abort) to handleDaemonPermissionResponse(). channel-manager.js
+// never initializes the channel, so per-process mode keeps the file fallback.
+//
+// Security contract is identical to the file protocol: a request is granted
+// ONLY by an explicit, well-formed allow/approved === true decision. Unknown
+// request ids are ignored, malformed decisions deny, and the safety-net
+// timeout denies so a hung Java side can never turn into an implicit allow.
+
+const daemonPermissionRequests = new Map(); // requestId -> { resolve, timer }
+let daemonPermissionSender = null;
+
+export function initDaemonPermissionChannel(sender) {
+  daemonPermissionSender = typeof sender === 'function' ? sender : null;
+  debugLog('DAEMON_CHANNEL_INIT', `Daemon permission channel initialized: ${daemonPermissionSender !== null}`);
+}
+
+export function isDaemonPermissionChannelActive() {
+  return daemonPermissionSender !== null;
+}
+
+/**
+ * Resolve a Java -> Node permission_response envelope. Unknown request ids
+ * (already timed out, duplicated, or never issued by this process) are
+ * ignored — a response can never grant anything on its own.
+ */
+export function handleDaemonPermissionResponse(message) {
+  const requestId = message?.requestId;
+  if (typeof requestId !== 'string' || !daemonPermissionRequests.has(requestId)) {
+    debugLog('DAEMON_RESPONSE_ORPHAN', 'Ignoring response for unknown request', {
+      hasRequestId: typeof requestId === 'string',
+    });
+    return;
+  }
+  const pending = daemonPermissionRequests.get(requestId);
+  daemonPermissionRequests.delete(requestId);
+  clearTimeout(pending.timer);
+  pending.resolve(message.decision);
+}
+
+/**
+ * Resolve every pending request with `undefined` (all callers map that to the
+ * safe deny default). Used on abort/shutdown so a disposed turn cannot leave
+ * map entries parked until the safety-net timeout.
+ */
+export function failAllPendingDaemonPermissionRequests() {
+  for (const [requestId, pending] of daemonPermissionRequests) {
+    clearTimeout(pending.timer);
+    pending.resolve(undefined);
+    daemonPermissionRequests.delete(requestId);
+  }
+}
+
+/**
+ * Send a permission_request envelope over the daemon channel and await the
+ * matching permission_response. Resolves with the decision object, or
+ * `undefined` on send failure / safety-net timeout (callers deny on both).
+ */
+export function requestViaDaemonChannel(requestId, kind, payload, timeoutMs = PERMISSION_REQUEST_SAFETY_NET_MS) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      daemonPermissionRequests.delete(requestId);
+      debugLog('DAEMON_TIMEOUT', `Timed out waiting for permission_response`, { kind });
+      resolve(undefined);
+    }, timeoutMs);
+
+    daemonPermissionRequests.set(requestId, { resolve, timer });
+
+    try {
+      daemonPermissionSender({
+        type: 'permission_request',
+        requestId,
+        payload: {
+          kind,
+          ...payload,
+          sessionId: SESSION_ID,
+          cwd: process.cwd(),
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      clearTimeout(timer);
+      daemonPermissionRequests.delete(requestId);
+      debugLog('DAEMON_SEND_ERROR', `Failed to send permission_request: ${errorClass(error)}`);
+      resolve(undefined);
+    }
+  });
+}
+
+async function requestPermissionViaDaemon(toolName, input) {
+  const requestStartTime = Date.now();
+  debugLog('DAEMON_REQUEST_START', `Tool: ${toolName}`, describeInputForLog(input));
+  try {
+    const decision = await requestViaDaemonChannel(randomUUID(), 'tool', { toolName, input });
+    // Same strict contract as parsePermissionAllowResponse: only an explicit
+    // boolean `true` grants; malformed/missing decisions and timeouts deny.
+    const allow = decision?.allow === true;
+    debugLog('DAEMON_RESPONSE_PARSED', `Parsed daemon decision`, { allow, elapsed: `${Date.now() - requestStartTime}ms` });
+    return allow;
+  } catch (error) {
+    debugLog('DAEMON_FATAL_ERROR', `Unexpected error: ${errorClass(error)}`);
+    return false;
+  }
+}
+
+async function requestAskUserQuestionAnswersViaDaemon(input) {
+  const requestStartTime = Date.now();
+  debugLog('DAEMON_ASK_START', 'Requesting answers via daemon channel', describeInputForLog(input));
+  try {
+    const decision = await requestViaDaemonChannel(`ask-${randomUUID()}`, 'ask_user_question', {
+      toolName: 'AskUserQuestion',
+      questions: input.questions || [],
+    });
+    const answers = decision?.answers;
+    if (answers && typeof answers === 'object') {
+      debugLog('DAEMON_ASK_RESPONSE_PARSED', 'Parsed answers', {
+        ...describeAnswersForLog(answers),
+        elapsed: `${Date.now() - requestStartTime}ms`,
+      });
+      return answers;
+    }
+    debugLog('DAEMON_ASK_FAILED', 'No well-formed answers in decision', { elapsed: `${Date.now() - requestStartTime}ms` });
+    return null;
+  } catch (error) {
+    debugLog('DAEMON_ASK_FATAL_ERROR', `Unexpected error: ${errorClass(error)}`);
+    return null;
+  }
+}
+
+async function requestPlanApprovalViaDaemon(input) {
+  const requestStartTime = Date.now();
+  debugLog('DAEMON_PLAN_START', 'Requesting plan approval via daemon channel', describeInputForLog(input));
+  try {
+    const plan = typeof input?.plan === 'string' ? input.plan.substring(0, 100000) : '';
+    const rawPrompts = Array.isArray(input?.allowedPrompts) ? input.allowedPrompts : [];
+    const allowedPrompts = rawPrompts
+      .filter(p => p && typeof p.tool === 'string' && typeof p.prompt === 'string')
+      .map(p => ({ tool: String(p.tool), prompt: String(p.prompt) }));
+
+    const decision = await requestViaDaemonChannel(`plan-${randomUUID()}`, 'plan_approval', {
+      toolName: 'ExitPlanMode',
+      plan,
+      allowedPrompts,
+    });
+
+    // Same strict contract as the file protocol: only approved === true approves.
+    const approved = decision?.approved === true;
+    const targetMode = typeof decision?.targetMode === 'string' ? decision.targetMode : 'default';
+    const message = typeof decision?.message === 'string' ? decision.message : undefined;
+    debugLog('DAEMON_PLAN_RESPONSE_PARSED', 'Parsed plan approval decision', {
+      approved,
+      targetMode,
+      elapsed: `${Date.now() - requestStartTime}ms`,
+    });
+    return { approved, targetMode, message };
+  } catch (error) {
+    debugLog('DAEMON_PLAN_FATAL_ERROR', `Unexpected error: ${errorClass(error)}`);
+    return { approved: false, message: 'Unexpected plan approval error' };
+  }
+}
+
+
 debugLog('INIT', `Permission dir: ${PERMISSION_DIR}`);
 debugLog('INIT', `Session ID: ${SESSION_ID}`);
 debugLog('INIT', `tmpdir(): ${tmpdir()}`);
@@ -119,6 +293,10 @@ try {
 export async function requestAskUserQuestionAnswers(input) {
   const requestStartTime = Date.now();
   debugLog('ASK_USER_QUESTION_START', 'Requesting answers for questions', describeInputForLog(input));
+
+  if (isDaemonPermissionChannelActive()) {
+    return requestAskUserQuestionAnswersViaDaemon(input);
+  }
 
   try {
     const requestId = `ask-${randomUUID()}`;
@@ -212,6 +390,10 @@ export async function requestAskUserQuestionAnswers(input) {
 export async function requestPlanApproval(input) {
   const requestStartTime = Date.now();
   debugLog('PLAN_APPROVAL_START', 'Requesting plan approval', describeInputForLog(input));
+
+  if (isDaemonPermissionChannelActive()) {
+    return requestPlanApprovalViaDaemon(input);
+  }
 
   try {
     const requestId = `plan-${randomUUID()}`;
@@ -317,6 +499,10 @@ export async function requestPlanApproval(input) {
 export async function requestPermissionFromJava(toolName, input) {
   const requestStartTime = Date.now();
   debugLog('REQUEST_START', `Tool: ${toolName}`, describeInputForLog(input));
+
+  if (isDaemonPermissionChannelActive()) {
+    return requestPermissionViaDaemon(toolName, input);
+  }
 
   try {
     try {

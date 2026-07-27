@@ -8,6 +8,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { getClaudeDir } from '../../utils/path-utils.js';
 import { loadClaudeSettings } from '../../config/api-config.js';
+import { emit } from '../../protocol/emitter.js';
 
 // SDK cache (module-internal, accessed via ensure* functions)
 let claudeSdk = null;
@@ -164,9 +165,9 @@ export function truncateErrorContent(content, maxLen = 1000) {
 }
 
 /**
- * Emit [USAGE] tag for Java-side token tracking.
- * NOTE: Uses process.stdout.write for consistent buffering with other IPC messages.
- * The Java backend parses stdout lines starting with "[USAGE]" to extract token metrics.
+ * Emit usage for Java-side token tracking as a 'usage' envelope.
+ * The Java backend parses 'usage' envelopes to extract token metrics
+ * (see ClaudeMessageHandler.parseUsageTag).
  */
 export function emitUsageTag(msg) {
   if (msg.type === 'assistant' && msg.message?.usage) {
@@ -174,10 +175,9 @@ export function emitUsageTag(msg) {
       input_tokens = 0, output_tokens = 0,
       cache_creation_input_tokens = 0, cache_read_input_tokens = 0
     } = msg.message.usage;
-    // Intentional stdout IPC — parsed by Java backend (see ClaudeMessageHandler.parseUsageTag)
-    process.stdout.write('[USAGE] ' + JSON.stringify({
+    emit('usage', {
       input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens
-    }) + '\n');
+    });
   }
 }
 

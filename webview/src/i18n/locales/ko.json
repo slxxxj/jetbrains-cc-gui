@@ -92,6 +92,8 @@
     "unknownFile": "알 수 없는 파일",
     "attachmentsUploaded": "[첨부파일 업로드됨]",
     "streamingConnected": "{{provider}} 연결됨, 질문을 이해하는 중",
+    "preparingToolCall": "도구 호출 준비 중: {{toolName}}",
+    "compactingContext": "컨텍스트 압축 중",
     "showEarlierMessages": "이전 메시지 {{count}}개 보기",
     "totalDuration": "이번 응답 소요 시간",
     "tokenUsage": "입력 {{input}} / 출력 {{output}}",
@@ -338,28 +340,17 @@
     "dependenciesDesc": "AI SDK 의존성 설치 및 업데이트 관리",
     "dependency": {
       "title": "SDK 의존성 관리",
-      "description": "AI SDK 의존성을 관리합니다. 처음 사용하기 전에 필요한 SDK를 설치하세요.",
-      "installPolicyTip": "설치 문제가 있으시면 오류를 터미널 CLI AI에 복사하여 해결하세요",
+      "description": "AI SDK 종속성의 설치 상태를 확인합니다. 종속성은 플러그인이 자동으로 설치하고 업데이트합니다.",
+      "installPolicyTip": "SDK 종속성은 플러그인이 자동으로 설치/업데이트하며 실패 시 자동으로 재시도합니다. 자세한 내용은 IDE 로그를 확인하세요.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 기능에 필요합니다. Claude Code SDK 및 관련 의존성을 포함합니다.",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Codex AI 기능에 필요합니다. OpenAI Codex SDK를 포함합니다.",
       "loading": "의존성 상태 로딩 중...",
-      "install": "설치",
-      "installing": "설치 중...",
-      "uninstall": "제거",
-      "uninstalling": "제거 중...",
-      "update": "업데이트",
-      "updateAvailable": "업데이트 가능",
-      "installLogs": "설치 로그",
-      "waitingForLogs": "로그 출력 대기 중...",
-      "nodeNotConfigured": "Node.js가 설정되지 않았습니다. 먼저 기본 설정에서 Node.js 경로를 설정해주세요.",
-      "installSuccess": "{{name}} 설치 완료",
-      "installFailed": "설치 실패: {{error}}",
-      "uninstallSuccess": "{{name}}이(가) 제거되었습니다",
-      "uninstallFailed": "제거 실패: {{error}}",
-      "updating": "업데이트 중...",
-      "updateSuccess": "{{name}} 업데이트 완료"
+      "statusInstalled": "설치됨",
+      "statusNotInstalled": "설치되지 않음",
+      "statusInstalling": "설치 중…",
+      "statusError": "실패, 자동 재시도 중"
     },
     "usage": "사용 통계",
     "usageDesc": "토큰 소비량, 비용 통계 및 사용 추이 분석 보기",
@@ -398,7 +389,15 @@
       "prompt": {
         "label": "추가 프롬프트",
         "placeholder": "추가 요구사항을 입력하세요. 예: 영어로 커밋 생성, 이슈 번호 포함 등...",
-        "hint": "플러그인에는 CCG Commits 사양 프롬프트가 내장되어 있습니다. 여기에 추가하는 내용은 추가 요구사항으로 사용되며, AI가 사용자의 지시를 우선합니다."
+        "hint": "플러그인에는 CodeAide Commits 사양 프롬프트가 내장되어 있습니다. 여기에 추가하는 내용은 추가 요구사항으로 사용되며, AI가 사용자의 지시를 우선합니다."
+      },
+      "agentConfig": {
+        "label": "병렬 에이전트(대용량 변경 세트)",
+        "batchSize": "에이전트당 파일 수",
+        "maxParallel": "최대 병렬 에이전트 수",
+        "fastMode": "빠른 모드(사고 생략)",
+        "includeFileDetail": "파일별 변경 내역 추가",
+        "hint": "변경 파일 수가 배치 크기를 초과하면 배치별로 에이전트가 병렬 실행되고 요약이 하나의 커밋 메시지로 병합되어 시간 초과를 방지합니다."
       },
       "codeReview": {
         "comingSoon": "곧 출시 예정",
@@ -536,6 +535,7 @@
       "cliLoginDisableTitle": "CLI 로그인 승인 취소",
       "cliLoginDisableMessage": "CLI 로그인 상태 사용을 중단하고 다른 공급자를 명시적으로 활성화할 때까지 Claude에 활성 공급자가 없는 상태가 됩니다.",
       "cliLoginAccountInfo": "로그인됨: {{email}}",
+      "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
       "subscriptionTutorial": {
         "entry": "구독 계정 가이드",
         "dialogTitle": "구독 계정 사용 방법",
@@ -561,7 +561,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "그래도 작동하지 않으면 GitHub에 이슈를 보고해주세요: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Codex 구독 계정 설정",
@@ -575,7 +575,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "그래도 작동하지 않으면 GitHub에 이슈를 보고해주세요: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -622,7 +622,7 @@
         "customModels": "사용자 지정 모델",
         "customModelsHint": "이 제공자가 지원하는 추가 모델을 추가합니다. 사용자 지정 모델은 모델 선택기 목록 상단에 표시됩니다",
         "jsonConfig": "JSON 설정",
-        "jsonConfigDescription": "여기에서 완전한 settings.json 내용을 설정할 수 있습니다. 모든 필드를 지원합니다 (예: model, alwaysThinkingEnabled, ccSwitchProviderId, codemossProviderId 등)",
+        "jsonConfigDescription": "여기에서 완전한 settings.json 내용을 설정할 수 있습니다. 모든 필드를 지원합니다 (예: model, alwaysThinkingEnabled, ccSwitchProviderId, codeaideProviderId 등)",
         "jsonError": "잘못된 JSON 형식",
         "required": "*",
         "showApiKey": "표시",
@@ -688,6 +688,7 @@
         "cliLoginAuthorizeDetail": "터미널에서 'codex login'으로 로그인했는지 확인하세요. 현재 config.toml은 백업됩니다.",
         "cliLoginDisableTitle": "Codex CLI 로그인 비활성화",
         "cliLoginDisableMessage": "이전 config.toml을 복원하고 API 키 인증 방식으로 전환합니다.",
+        "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
         "modelIdRequired": "모델 ID는 필수입니다",
         "modelIdInvalid": "잘못된 모델 ID 형식 (영문자, 숫자, 점, 하이픈, 밑줄, 슬래시, 콜론만 허용)",
         "modelIdDuplicate": "모델 ID가 이미 존재합니다",
@@ -1513,6 +1514,13 @@
     "searchPlaceholder": "모델 검색",
     "noModelsFound": "모델을 찾을 수 없습니다",
     "hiddenModelCount": "+ {{count}}개 모델 더 있음. 입력하여 검색하세요.",
+    "refreshList": "Refresh model list",
+    "refreshListHint": "Fetch the latest model list from the current provider",
+    "subagent": {
+      "title": "Select subagent model",
+      "default": "Default (follow main model)",
+      "defaultDescription": "Subagents use the main model"
+    },
     "claude": {
       "sonnet46": {
         "label": "Sonnet 4.6",
@@ -1774,18 +1782,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "SDK 설치 불완전 — 네이티브 바이너리 누락",
-      "intro": "이것은 Taobao npm 미러의 알려진 문제입니다(플러그인 버그가 아님). 미러가 플랫폼별 파일을 완전히 동기화하지 않았습니다. 아래 방법 중 하나로 수동 해결할 수 있습니다:",
+      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug) — the mirror hasn't fully synchronized the platform-specific files. The plugin will retry the installation automatically; you can also speed up recovery with the option below:",
       "reason": "Taobao 미러가 동기화를 완료하면 이 문제가 자동으로 사라집니다. 걱정하지 마세요.",
       "solutions": {
         "switchRegistry": {
-          "title": "방법 1: 임시로 공식 레지스트리로 전환 후 재설치",
+          "title": "Option 1: Switch to the official registry and let the plugin retry",
           "step0": "1. 터미널에서 실행 (npm 공식 레지스트리로 전환):",
-          "step1": "2. 플러그인 설정의 '종속성 관리'를 열고 재설치 클릭:",
-          "step2": "3. 재설치 완료 후 Taobao 미러로 복원:"
-        },
-        "downgrade": {
-          "title": "방법 2: 버전 롤백",
-          "step0": "'종속성 관리'에서 SDK 버전을 v0.2.112 또는 그 이전으로 전환하세요. 전환 후 IDEA를 재시작해야 합니다."
+          "step1": "2. The plugin retries the installation automatically; afterwards you can switch back to the Taobao mirror (optional). Check the logs if it still fails:"
         }
       }
     },
@@ -1799,9 +1802,8 @@
           "step0": "터미널에서 아래 명령어를 실행하여 버전을 확인하세요. Node 22 또는 현재 LTS를 권장합니다 — Node 24에서 많은 오류가 보고되었으므로 Node 20 또는 22를 우선 사용하세요:"
         },
         "reinstallLatestSdk": {
-          "title": "방법 2: npm 공식 레지스트리에서 최신 SDK 재설치",
-          "step0": "1. npm 공식 레지스트리로 전환 (Taobao 미러는 최신 버전이 없을 수 있으므로 사용하지 마세요):",
-          "step1": "2. '종속성 관리'를 열고 최신 SDK를 재설치:"
+          "title": "Option 2: Switch to the official npm registry and let the plugin reinstall the latest SDK",
+          "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
     }

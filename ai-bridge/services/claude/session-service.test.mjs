@@ -8,7 +8,7 @@ import { getSessionMessages } from './session-service.js';
 
 test('getSessionMessages returns an empty history when the session file is missing', async () => {
   const originalHome = process.env.HOME;
-  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-gui-claude-session-'));
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'codeaide-claude-session-'));
   const output = [];
   const originalLog = console.log;
 

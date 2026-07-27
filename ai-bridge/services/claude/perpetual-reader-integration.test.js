@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startPerpetualReader, createTurnSink } from './runtime-lifecycle.js';
+import { initEmitter } from '../../protocol/emitter.js';
 
 /**
  * Integration tests for the REAL perpetual reader (startPerpetualReader).
@@ -65,19 +66,14 @@ function createControlledQuery() {
   };
 }
 
-/** Capture inter-turn events written via process.stdout._originalStdoutWrite. */
+/** Capture inter-turn events emitted via the protocol emitter (emitDaemonEvent). */
 function captureInterTurnEvents() {
   const list = [];
-  const original = process.stdout._originalStdoutWrite;
-  process.stdout._originalStdoutWrite = (str) => {
-    try { list.push(JSON.parse(str)); } catch (_) { /* ignore non-JSON */ }
-    return true;
-  };
+  initEmitter((obj) => list.push(obj));
   return {
     list,
     restore() {
-      if (original === undefined) delete process.stdout._originalStdoutWrite;
-      else process.stdout._originalStdoutWrite = original;
+      initEmitter(null);
     },
   };
 }

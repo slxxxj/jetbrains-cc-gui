@@ -5,8 +5,9 @@ import { ContextBar } from './ContextBar.js';
 import { MessageQueue } from './MessageQueue.js';
 import { useUIState } from '../../contexts/UIStateContext';
 import { copyToClipboard } from '../../utils/copyUtils';
+import { providerDisplayName } from '../../utils/providerCapabilities';
 
-const GITHUB_REPO_URL = 'https://github.com/zhukunpenglinyutong/jetbrains-cc-gui';
+const GITHUB_REPO_URL = 'https://github.com/zhukunpenglinyutong/jetbrains-codeaide';
 
 export function ChatInputBoxHeader({
   sdkStatusLoading,
@@ -117,7 +118,7 @@ export function ChatInputBoxHeader({
             {sdkStatusLoading
               ? t('chat.sdkStatusLoading')
               : t('chat.sdkNotInstalled', {
-                  provider: currentProvider === 'codex' ? 'Codex' : 'Claude Code',
+                  provider: providerDisplayName(currentProvider),
                 })}
           </span>
           {!sdkStatusLoading && (

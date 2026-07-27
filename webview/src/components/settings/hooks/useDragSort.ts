@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
-const PROVIDER_SORT_MIME_TYPE = 'application/x-cc-gui-provider-sort';
+const PROVIDER_SORT_MIME_TYPE = 'application/x-codeaide-provider-sort';
 
 // Stay above any modal/portal overlays without colliding with potential DOM owners.
 const DRAG_PREVIEW_Z_INDEX = '2147483647';

@@ -32,7 +32,7 @@ function setupContainer(html: string): React.RefObject<HTMLDivElement> {
 beforeEach(() => {
   document.body.innerHTML = '';
   // Clear persisted search options so each test starts fresh.
-  try { window.localStorage.removeItem('cc-gui.search.options'); } catch { /* ignore */ }
+  try { window.localStorage.removeItem('codeaide.search.options'); } catch { /* ignore */ }
   vi.useFakeTimers();
 });
 
@@ -267,7 +267,7 @@ describe('ConversationSearch', () => {
     // Flip Match Case on
     fireEvent.click(screen.getByLabelText(/Match Case/i));
     // Verify it was written to localStorage
-    const raw = window.localStorage.getItem('cc-gui.search.options');
+    const raw = window.localStorage.getItem('codeaide.search.options');
     expect(raw).toBeTruthy();
     expect(JSON.parse(raw!).matchCase).toBe(true);
     unmount();

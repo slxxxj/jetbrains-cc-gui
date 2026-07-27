@@ -1,13 +1,13 @@
-# Builds the CC GUI IntelliJ plugin distribution (.zip) inside a container.
+# Builds the CodeAide IntelliJ plugin distribution (.zip) inside a container.
 #
 # Build the image:
-#   docker build -t cc-gui-build .
+#   docker build -t codeaide-build .
 #
 # Produce the plugin zip into ./dist on the host:
-#   mkdir -p dist && docker run --rm -v "$(pwd)/dist:/out" cc-gui-build
+#   mkdir -p dist && docker run --rm -v "$(pwd)/dist:/out" codeaide-build
 #
 # Target a different IDE (IC = IntelliJ Community [default], PC, PY, RD):
-#   docker run --rm -v "$(pwd)/dist:/out" -e TARGET_IDE=PC cc-gui-build
+#   docker run --rm -v "$(pwd)/dist:/out" -e TARGET_IDE=PC codeaide-build
 
 FROM eclipse-temurin:17-jdk-jammy AS build
 

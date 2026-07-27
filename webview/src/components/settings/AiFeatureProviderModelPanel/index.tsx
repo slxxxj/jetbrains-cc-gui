@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CLAUDE_MODELS, CODEX_MODELS } from '../../ChatInputBox/types';
+import { getAvailableModels } from '../../../utils/providerCapabilities';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import type { AiFeatureConfig, AiFeatureProvider } from '../../../types/aiFeatureConfig';
 import styles from './style.module.less';
@@ -30,7 +30,7 @@ const AiFeatureProviderModelPanel = ({
     ?? config.effectiveProvider
     ?? fallbackProvider;
   const statusProvider = config.effectiveProvider ?? config.provider ?? fallbackProvider;
-  const modelOptions = selectedProvider === 'codex' ? CODEX_MODELS : CLAUDE_MODELS;
+  const modelOptions = getAvailableModels(selectedProvider);
   const isAutoMode = config.provider == null;
   const statusText = config.resolutionSource === 'auto'
     ? t(`${settingsKeyPrefix}.currentProviderAuto`, {

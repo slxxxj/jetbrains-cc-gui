@@ -41,8 +41,8 @@ tasks.named('checkstyleTest') {
     enabled = false
 }
 
-group = 'com.github.idea-claude-code-gui'
-version = '0.4.7'
+group = 'com.codeaide'
+version = '0.1.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -276,12 +276,12 @@ tasks.named('runIde') {
     systemProperty 'idea.plugin.in.sandbox.mode', 'true'
 
     // Configure log output to console
-    systemProperty 'idea.log.debug.categories', '#com.github.claudecodegui'
+    systemProperty 'idea.log.debug.categories', '#com.codeaide'
 
     // Point bridge resolver to pre-extracted ai-bridge with node_modules (dev only)
     def stableBridge = layout.buildDirectory.dir("stable-ai-bridge").get().asFile
     if (stableBridge.exists()) {
-        systemProperty 'claude.bridge.path', stableBridge.absolutePath
+        systemProperty 'codeaide.bridge.path', stableBridge.absolutePath
     }
 
     // Redirect standard output
@@ -418,7 +418,7 @@ tasks.register('packageAiBridge', Exec) {
     }
 
     // Use system zip command, -r for recursive, -y to preserve symlinks
-    // Exclude SDK packages (they will be installed on-demand by users to ~/.codemoss/dependencies/)
+    // Exclude SDK packages (they will be installed on-demand by users to ~/.codeaide/dependencies/)
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
         // Windows: Use PowerShell to exclude SDK packages
         // Create temporary PowerShell script file to avoid escaping issues
@@ -467,7 +467,23 @@ tasks.register('packageAiBridge', Exec) {
             }
             '''
         tempScript.text = scriptContent
-        commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempScript.absolutePath
+        // Default to PowerShell 7 (pwsh); fall back to Windows PowerShell 5.1 when PS7 is not installed
+        def psExe = 'powershell'
+        def pwshDefaultPath = "${System.getenv('ProgramFiles')}\\PowerShell\\7\\pwsh.exe"
+        if (new File(pwshDefaultPath).exists()) {
+            psExe = pwshDefaultPath
+        } else {
+            try {
+                def probe = new ProcessBuilder('pwsh', '-NoProfile', '-Command', 'exit 0')
+                    .redirectErrorStream(true).start()
+                if (probe.waitFor() == 0) {
+                    psExe = 'pwsh'
+                }
+            } catch (Exception ignored) {
+                // pwsh not on PATH; keep Windows PowerShell
+            }
+        }
+        commandLine psExe, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempScript.absolutePath
     } else {
         // Unix/Linux/macOS: Use zip command to preserve permissions
         // Exclude SDK package directories

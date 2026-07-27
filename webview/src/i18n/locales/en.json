@@ -92,6 +92,8 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[Attachments Uploaded]",
     "streamingConnected": "{{provider}} connected, understanding your question",
+    "preparingToolCall": "Preparing tool call: {{toolName}}",
+    "compactingContext": "Compacting context",
     "showEarlierMessages": "Show {{count}} earlier messages",
     "totalDuration": "This reply took",
     "tokenUsage": "{{input}} in / {{output}} out",
@@ -342,7 +344,7 @@
     },
     "pluginModels": {
       "title": "Custom Models",
-      "description": "Custom models added here will be visible under all providers, shown at the top of the model selector",
+      "description": "Custom models are saved with the active provider and shown at the top of the model selector",
       "dialogTitle": "Manage Custom Models",
       "manage": "Manage Models",
       "pricing": {
@@ -369,39 +371,18 @@
     "dependenciesDesc": "Manage AI SDK dependency installations and updates",
     "dependency": {
       "title": "SDK Dependency Management",
-      "description": "Manage AI SDK dependencies. Install the required SDK before first use.",
-      "installPolicyTip": "Installation issues? Copy the error to a terminal CLI AI to resolve",
+      "description": "View the installation status of AI SDK dependencies. Dependencies are installed and updated automatically by the plugin.",
+      "installPolicyTip": "SDK dependencies are installed and updated automatically; failures are retried automatically. See the IDE logs for details.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Required for Claude AI features. Includes Claude Code SDK and related dependencies.",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Required for Codex AI features. Includes OpenAI Codex SDK.",
       "loading": "Loading dependency status...",
-      "install": "Install",
-      "installing": "Installing...",
-      "uninstall": "Uninstall",
-      "uninstalling": "Uninstalling...",
-      "update": "Update",
-      "installVersion": "Install {{version}}",
-      "updateToVersion": "Update to {{version}}",
-      "rollbackToVersion": "Rollback to {{version}}",
-      "currentVersionAction": "Current version",
-      "updateAvailable": "Update available",
-      "installLogs": "Install Logs",
-      "waitingForLogs": "Waiting for log output...",
-      "targetVersion": "Target version",
-      "loadingVersions": "Version list loading",
       "installedVersion": "Installed {{version}}",
-      "latestStableVersion": "Latest stable {{version}}",
-      "targetVersionValue": "Target {{version}}",
-      "versionSourceFallback": "Remote versions could not be loaded. Showing the built-in recommended versions instead. You can still enter a version manually.",
-      "rollbackWarning": "This is a rollback operation. Re-check the related AI features after switching versions.",
-      "nodeNotConfigured": "Node.js is not configured. Please set the Node.js path in Basic Settings first.",
-      "installSuccess": "{{name}} installed successfully",
-      "installFailed": "Installation failed: {{error}}",
-      "uninstallSuccess": "{{name}} has been uninstalled",
-      "uninstallFailed": "Uninstall failed: {{error}}",
-      "updating": "Updating...",
-      "updateSuccess": "{{name}} updated successfully"
+      "statusInstalled": "Installed",
+      "statusNotInstalled": "Not installed",
+      "statusInstalling": "Installing…",
+      "statusError": "Failed, retrying automatically"
     },
     "usage": "Usage Statistics",
     "usageDesc": "View your Token consumption, cost statistics and usage trend analysis",
@@ -436,12 +417,20 @@
       "prompt": {
         "label": "Additional Prompt",
         "placeholder": "Add your extra requirements here, e.g., generate commit in English, include issue number, etc...",
-        "hint": "The plugin has built-in CCG Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
+        "hint": "The plugin has built-in CodeAide Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
       },
       "projectPrompt": {
         "label": "Project-specific Additional Prompt",
         "placeholder": "Add project-specific requirements here, e.g., scope must use module name, commit body should include impact scope, etc...",
         "hint": "This prompt only applies to the current project and is appended together with the global additional prompt. When they conflict, the project prompt takes precedence. Different projects can be configured independently."
+      },
+      "agentConfig": {
+        "label": "Parallel Agents (Large Change Sets)",
+        "batchSize": "Files per agent",
+        "maxParallel": "Max parallel agents",
+        "fastMode": "Fast mode (skip thinking)",
+        "includeFileDetail": "Append per-file change details",
+        "hint": "When the change set exceeds the batch size, one agent per batch runs in parallel and the summaries are merged into a single commit message, avoiding timeouts on large commits."
       },
       "codeReview": {
         "comingSoon": "Coming Soon",
@@ -591,6 +580,7 @@
       "cliLoginDisableTitle": "Revoke CLI Login Authorization",
       "cliLoginDisableMessage": "This will stop using CLI login state and leave Claude with no active provider until you explicitly enable another one.",
       "cliLoginAccountInfo": "Logged in as: {{email}}",
+      "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
       "subscriptionTutorial": {
         "entry": "Subscription Account Guide",
         "dialogTitle": "How to use a subscription account",
@@ -616,7 +606,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "If it still doesn't work, please report an issue on GitHub: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Codex Subscription Account Setup",
@@ -630,7 +620,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "If it still doesn't work, please report an issue on GitHub: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -684,7 +674,7 @@
         "customModels": "Custom Models",
         "customModelsHint": "Add extra models supported by this provider. Custom models will appear at the top of the model selector list",
         "jsonConfig": "JSON Configuration",
-        "jsonConfigDescription": "Configure complete settings.json content here, supporting all fields (e.g., model, alwaysThinkingEnabled, ccSwitchProviderId, codemossProviderId, etc.)",
+        "jsonConfigDescription": "Configure complete settings.json content here, supporting all fields (e.g., model, alwaysThinkingEnabled, ccSwitchProviderId, codeaideProviderId, etc.)",
         "jsonError": "Invalid JSON format",
         "required": "*",
         "showApiKey": "Show",
@@ -750,6 +740,7 @@
         "cliLoginAuthorizeDetail": "This will not modify or overwrite your config.toml or auth.json, and you can revoke the authorization at any time.",
         "cliLoginDisableTitle": "Revoke Local Codex Config Authorization",
         "cliLoginDisableMessage": "The plugin will stop reading ~/.codex/config.toml and auth.json.",
+        "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
         "modelIdRequired": "Model ID is required",
         "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
         "modelIdDuplicate": "Model ID already exists",
@@ -1634,6 +1625,13 @@
     "searchPlaceholder": "Search models",
     "noModelsFound": "No models found",
     "hiddenModelCount": "+ {{count}} more models. Type to search.",
+    "refreshList": "Refresh model list",
+    "refreshListHint": "Fetch the latest model list from the current provider",
+    "subagent": {
+      "title": "Select subagent model",
+      "default": "Default (follow main model)",
+      "defaultDescription": "Subagents use the main model"
+    },
     "longContext": {
       "label": "1M",
       "shortLabel": "1M context",
@@ -1944,18 +1942,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "SDK installation incomplete — native binary missing",
-      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug). The mirror hasn't fully synchronized the platform-specific files. You can resolve it manually with either of the options below:",
+      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug) — the mirror hasn't fully synchronized the platform-specific files. The plugin will retry the installation automatically; you can also speed up recovery with the option below:",
       "reason": "This issue will disappear automatically once the Taobao mirror finishes syncing — no further action needed.",
       "solutions": {
         "switchRegistry": {
-          "title": "Option 1: Temporarily switch to the official registry and reinstall",
+          "title": "Option 1: Switch to the official registry and let the plugin retry",
           "step0": "1. Run this in your terminal (switch to the official npm registry):",
-          "step1": "2. Open the plugin's Dependency Management settings and click Reinstall:",
-          "step2": "3. After the reinstall completes, switch back to the Taobao mirror:"
-        },
-        "downgrade": {
-          "title": "Option 2: Roll back to an older version",
-          "step0": "In Dependency Management, switch the SDK version to v0.2.112 or earlier. Restart IDEA after switching."
+          "step1": "2. The plugin retries the installation automatically; afterwards you can switch back to the Taobao mirror (optional). Check the logs if it still fails:"
         }
       }
     },
@@ -1969,9 +1962,8 @@
           "step0": "Run the command below in a terminal to see your version. Node 22 or the current LTS is recommended — users have reported many issues on Node 24, so prefer Node 20 or 22:"
         },
         "reinstallLatestSdk": {
-          "title": "Option 2: Reinstall the latest SDK from the official npm registry",
-          "step0": "1. Switch to the official npm registry (avoid the Taobao mirror — it may not have the latest version):",
-          "step1": "2. Open Dependency Management and reinstall the latest SDK:"
+          "title": "Option 2: Switch to the official npm registry and let the plugin reinstall the latest SDK",
+          "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
     }

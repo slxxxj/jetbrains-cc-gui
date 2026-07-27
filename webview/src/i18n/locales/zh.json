@@ -92,6 +92,8 @@
     "unknownFile": "未知文件",
     "attachmentsUploaded": "[已上传附件]",
     "streamingConnected": "{{provider}} 已成功连接，正在理解问题",
+    "preparingToolCall": "正在准备工具调用：{{toolName}}",
+    "compactingContext": "正在压缩上下文",
     "showEarlierMessages": "显示之前的 {{count}} 条消息",
     "totalDuration": "本次耗时",
     "tokenUsage": "输入 {{input}} / 输出 {{output}}",
@@ -342,7 +344,7 @@
     },
     "pluginModels": {
       "title": "自定义模型",
-      "description": "添加的自定义模型将在所有供应商下可见，显示在模型选择列表的最前面",
+      "description": "自定义模型跟随当前供应商保存，显示在模型选择列表的最前面",
       "dialogTitle": "管理自定义模型",
       "manage": "管理模型",
       "pricing": {
@@ -369,39 +371,18 @@
     "dependenciesDesc": "管理 AI SDK 依赖包的安装和更新",
     "dependency": {
       "title": "SDK 依赖管理",
-      "description": "管理 AI SDK 依赖包。首次使用时需要安装对应的 SDK。",
-      "installPolicyTip": "安装遇到问题？可将报错复制给终端CLI AI 解决",
+      "description": "查看 AI SDK 依赖的安装状态。依赖由插件自动安装与更新，无需手动操作。",
+      "installPolicyTip": "SDK 依赖由插件自动安装与更新；失败会自动重试，详情可查看 IDE 日志。",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相关依赖。",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Codex AI 功能所需。包含 OpenAI Codex SDK。",
       "loading": "正在加载依赖状态...",
-      "install": "安装",
-      "installing": "安装中...",
-      "uninstall": "卸载",
-      "uninstalling": "卸载中...",
-      "update": "更新",
-      "installVersion": "安装 {{version}}",
-      "updateToVersion": "更新到 {{version}}",
-      "rollbackToVersion": "回退到 {{version}}",
-      "currentVersionAction": "当前版本",
-      "updateAvailable": "有更新",
-      "installLogs": "安装日志",
-      "waitingForLogs": "等待日志输出...",
-      "targetVersion": "目标版本",
-      "loadingVersions": "版本列表加载中",
       "installedVersion": "当前版本 {{version}}",
-      "latestStableVersion": "最新稳定版 {{version}}",
-      "targetVersionValue": "目标版本 {{version}}",
-      "versionSourceFallback": "远程版本列表获取失败，当前展示内置推荐版本。你仍然可以手动输入版本号。",
-      "rollbackWarning": "这是回退操作，建议在切换后重新验证相关 AI 功能是否正常。",
-      "nodeNotConfigured": "Node.js 未配置，请先在基础配置中设置 Node.js 路径。",
-      "installSuccess": "{{name}} 安装成功",
-      "installFailed": "安装失败: {{error}}",
-      "uninstallSuccess": "{{name}} 已卸载",
-      "uninstallFailed": "卸载失败: {{error}}",
-      "updating": "更新中...",
-      "updateSuccess": "{{name}} 更新成功"
+      "statusInstalled": "已安装",
+      "statusNotInstalled": "未安装",
+      "statusInstalling": "安装中…",
+      "statusError": "安装失败，自动重试中"
     },
     "usage": "使用统计",
     "usageDesc": "查看您的 Token 消耗、费用统计和使用趋势分析",
@@ -436,12 +417,20 @@
       "prompt": {
         "label": "附加提示词",
         "placeholder": "在此添加您的额外要求，例如：使用中文生成 commit、包含 issue 编号，使用表情符号等等...",
-        "hint": "插件已内置完整的 CCG Commits 规范提示词。您在此处添加的内容将作为附加要求，AI 会优先遵循您的要求。"
+        "hint": "插件已内置完整的 CodeAide Commits 规范提示词。您在此处添加的内容将作为附加要求，AI 会优先遵循您的要求。"
       },
       "projectPrompt": {
         "label": "项目级附加提示词",
         "placeholder": "在此添加当前项目的专属要求，例如：scope 必须使用模块名、commit body 需包含影响范围等...",
         "hint": "此提示词仅对当前项目生效，与全局附加提示词同时拼接。当两者内容矛盾时，以项目提示词为准。不同项目可独立配置。"
+      },
+      "agentConfig": {
+        "label": "并行 Agent（大量文件）",
+        "batchSize": "每个 agent 处理的文件数",
+        "maxParallel": "最大并行 agent 数",
+        "fastMode": "快速模式（禁用思考）",
+        "includeFileDetail": "附加文件变更明细",
+        "hint": "当变更文件数超过每批数量时，将按批并行调用多个 agent 分别概括，再汇总生成一条 commit message，避免大提交超时。"
       },
       "codeReview": {
         "comingSoon": "即将推出",
@@ -596,6 +585,7 @@
       "cliLoginDisableTitle": "取消 CLI 登录授权",
       "cliLoginDisableMessage": "此操作会停止使用 CLI 登录状态，并让 Claude 处于未启用任何供应商的状态，直到您再次显式启用其它供应商。",
       "cliLoginAccountInfo": "已登录：{{email}}",
+      "cliLoginIsolationNote": "此模式与外部 CLI 共享配置，不受插件隔离保护。",
       "subscriptionTutorial": {
         "entry": "订阅制账号教程",
         "dialogTitle": "如何使用订阅制账号",
@@ -621,7 +611,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "如果还是不行，可以去GitHub留言排查：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Codex 订阅制账号使用方式",
@@ -635,7 +625,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "如果还是不行，可以去GitHub留言排查：",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -689,7 +679,7 @@
         "customModels": "自定义模型",
         "customModelsHint": "添加此供应商支持的额外模型，自定义模型将显示在模型选择列表的最前面",
         "jsonConfig": "配置 JSON",
-        "jsonConfigDescription": "此处可配置完整的 settings.json 内容，支持所有字段（如 model、alwaysThinkingEnabled、ccSwitchProviderId、codemossProviderId 等）",
+        "jsonConfigDescription": "此处可配置完整的 settings.json 内容，支持所有字段（如 model、alwaysThinkingEnabled、ccSwitchProviderId、codeaideProviderId 等）",
         "jsonError": "JSON 格式无效",
         "required": "*",
         "showApiKey": "显示",
@@ -755,6 +745,7 @@
         "cliLoginAuthorizeDetail": "此操作不会修改或覆盖您的 config.toml 和 auth.json，您可以随时取消授权。",
         "cliLoginDisableTitle": "取消本地 Codex 配置授权",
         "cliLoginDisableMessage": "插件将停止读取 ~/.codex/config.toml 和 auth.json。",
+        "cliLoginIsolationNote": "此模式与外部 CLI 共享配置，不受插件隔离保护。",
         "modelIdRequired": "请输入模型 ID",
         "modelIdInvalid": "模型 ID 格式无效（仅允许字母、数字、点、连字符、下划线、斜杠和冒号）",
         "modelIdDuplicate": "模型 ID 已存在",
@@ -1639,6 +1630,13 @@
     "searchPlaceholder": "搜索模型",
     "noModelsFound": "未找到模型",
     "hiddenModelCount": "+ 还有 {{count}} 个模型。输入以搜索。",
+    "refreshList": "刷新模型列表",
+    "refreshListHint": "从当前供应商获取最新模型列表",
+    "subagent": {
+      "title": "选择子代理模型",
+      "default": "默认（跟随主模型）",
+      "defaultDescription": "子代理使用主模型"
+    },
     "longContext": {
       "label": "1M",
       "shortLabel": "1M上下文",
@@ -1949,18 +1947,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "SDK 安装不完整 — 缺少 native 二进制文件",
-      "intro": "这是淘宝 npm 镜像源的已知问题（非插件 bug）。镜像源未完整同步 platform 文件。可手动按以下方案处理：",
+      "intro": "这是淘宝 npm 镜像源的已知问题（非插件 bug），因镜像源未完全同步 platform 文件。插件会自动重试安装，你也可以按下面的方案加速恢复：",
       "reason": "淘宝源同步完成后此问题会自动消失，无需担心。",
       "solutions": {
         "switchRegistry": {
-          "title": "方案一：临时切换官方源重装",
+          "title": "方案一：切换到官方源，等待自动重试",
           "step0": "1. 在终端运行（切换到 npm 官方源）：",
-          "step1": "2. 打开插件设置中的「依赖管理」，点击重装：",
-          "step2": "3. 重装完成后，切回淘宝源："
-        },
-        "downgrade": {
-          "title": "方案二：版本回退",
-          "step0": "在「依赖管理」中将 SDK 版本切换到 v0.2.112 或更早版本，切换后需要重启 IDEA。"
+          "step1": "2. 插件会自动重试安装；恢复后可切回淘宝源（可选）。如仍失败请查看日志："
         }
       }
     },
@@ -1974,9 +1967,8 @@
           "step0": "在终端运行下面的命令查看版本号。建议使用 Node 22 或当前最新 LTS 版本 — 用户反馈 Node 24 报错较多，请优先使用 20 或 22："
         },
         "reinstallLatestSdk": {
-          "title": "方案二：用 npm 官方源重装最新版 SDK",
-          "step0": "1. 切换到 npm 官方源（淘宝源可能未同步最新版本，请勿使用淘宝源安装）：",
-          "step1": "2. 打开「依赖管理」重装最新版 SDK："
+          "title": "方案二：切换到 npm 官方源后自动重装最新版 SDK",
+          "step0": "切换到 npm 官方源（淘宝源可能未同步最新版本）；插件随后会自动重试安装，如仍失败请查看日志："
         }
       }
     }

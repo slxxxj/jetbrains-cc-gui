@@ -1,17 +1,17 @@
 <idea-plugin>
     <!--
-    Terminal-specific features for CC GUI（Claude or Codex）.
+    Terminal-specific features for CodeAide（Claude or Codex）.
     This configuration is only loaded when the Terminal plugin is available.
     -->
     <extensions defaultExtensionNs="com.intellij">
         <!-- Monitor Terminal Output - Only active when Terminal plugin is installed -->
-        <postStartupActivity implementation="com.github.claudecodegui.terminal.TerminalMonitorService"/>
+        <postStartupActivity implementation="com.codeaide.terminal.TerminalMonitorService"/>
     </extensions>
 
     <actions>
-        <action id="ClaudeCodeGUI.SendTerminalSelectionToInputAction"
-                class="com.github.claudecodegui.terminal.SendTerminalSelectionToInputAction"
-                icon="/icons/cc-gui-icon.svg">
+        <action id="CodeAide.SendTerminalSelectionToInputAction"
+                class="com.codeaide.terminal.SendTerminalSelectionToInputAction"
+                icon="/icons/codeaide-icon.svg">
             <add-to-group group-id="Terminal.OutputContextMenu" anchor="last"/>
             <add-to-group group-id="Terminal.PromptContextMenu" anchor="last"/>
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>

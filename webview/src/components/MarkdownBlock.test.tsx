@@ -67,7 +67,7 @@ describe('MarkdownBlock linkify integration', () => {
   });
 
   it('renders Java class links only when capability is enabled', () => {
-    const fqcn = 'com.github.claudecodegui.handler.file.OpenFileHandler';
+    const fqcn = 'com.codeaide.handler.file.OpenFileHandler';
 
     const disabledRender = render(<MarkdownBlock content={fqcn} />);
     expect(screen.queryByRole('link', { name: fqcn })).toBeNull();
@@ -223,7 +223,7 @@ describe('MarkdownBlock linkify integration', () => {
         content={[
           'Open src/components/App.tsx',
           '',
-          'See com.github.claudecodegui.handler.file.OpenFileHandler',
+          'See com.codeaide.handler.file.OpenFileHandler',
           '',
           'Visit https://example.com/docs',
         ].join('\n')}
@@ -233,14 +233,14 @@ describe('MarkdownBlock linkify integration', () => {
     fireEvent.click(screen.getByRole('link', { name: 'src/components/App.tsx' }));
     fireEvent.click(
       screen.getByRole('link', {
-        name: 'com.github.claudecodegui.handler.file.OpenFileHandler',
+        name: 'com.codeaide.handler.file.OpenFileHandler',
       }),
     );
     fireEvent.click(screen.getByRole('link', { name: 'https://example.com/docs' }));
 
     expect(bridgeMocks.openFile).toHaveBeenCalledWith('src/components/App.tsx');
     expect(bridgeMocks.openClass).toHaveBeenCalledWith(
-      'com.github.claudecodegui.handler.file.OpenFileHandler',
+      'com.codeaide.handler.file.OpenFileHandler',
     );
     expect(bridgeMocks.openBrowser).toHaveBeenCalledWith('https://example.com/docs');
   });
@@ -301,7 +301,7 @@ describe('MarkdownBlock linkify integration', () => {
     const content = [
       'Reading src/App.tsx',
       '',
-      'Class com.github.claudecodegui.handler.file.OpenFileHandler',
+      'Class com.codeaide.handler.file.OpenFileHandler',
       '',
       'Docs https://example.com/docs',
     ].join('\n');
@@ -311,7 +311,7 @@ describe('MarkdownBlock linkify integration', () => {
     expect(screen.getByRole('link', { name: 'src/App.tsx' })).toBeTruthy();
     expect(
       screen.getByRole('link', {
-        name: 'com.github.claudecodegui.handler.file.OpenFileHandler',
+        name: 'com.codeaide.handler.file.OpenFileHandler',
       }),
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'https://example.com/docs' })).toBeTruthy();
@@ -321,7 +321,7 @@ describe('MarkdownBlock linkify integration', () => {
     expect(screen.getByRole('link', { name: 'src/App.tsx' })).toBeTruthy();
     expect(
       screen.getByRole('link', {
-        name: 'com.github.claudecodegui.handler.file.OpenFileHandler',
+        name: 'com.codeaide.handler.file.OpenFileHandler',
       }),
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'https://example.com/docs' })).toBeTruthy();

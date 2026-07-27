@@ -3,6 +3,18 @@ import type { ClaudeMessage, SubagentHistoryResponse } from '../types';
 
 export const DEFAULT_STATUS = 'ready';
 
+/**
+ * Transient streaming status hint shown in the WaitingIndicator area:
+ * - tool_preparing: the model started a tool_use block and is streaming its
+ *   input JSON (can take seconds for large Write/Edit calls); cleared when the
+ *   tool card upserts, when text/thinking deltas resume, or on stream cleanup.
+ * - compacting: the SDK reported context compaction in progress; cleared on the
+ *   compaction-end signal or on stream cleanup.
+ */
+export type StreamingHint =
+  | { kind: 'tool_preparing'; toolName: string }
+  | { kind: 'compacting' };
+
 export interface MessagesContextValue {
   messages: ClaudeMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ClaudeMessage[]>>;
@@ -18,6 +30,8 @@ export interface MessagesContextValue {
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>;
   streamingActive: boolean;
   setStreamingActive: React.Dispatch<React.SetStateAction<boolean>>;
+  streamingHint: StreamingHint | null;
+  setStreamingHint: React.Dispatch<React.SetStateAction<StreamingHint | null>>;
 }
 
 const MessagesContext = createContext<MessagesContextValue | null>(null);
@@ -38,6 +52,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [streamingActive, setStreamingActive] = useState<boolean>(false);
+  const [streamingHint, setStreamingHint] = useState<StreamingHint | null>(null);
 
   const value = useMemo<MessagesContextValue>(
     () => ({
@@ -55,8 +70,10 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       setIsThinking,
       streamingActive,
       setStreamingActive,
+      streamingHint,
+      setStreamingHint,
     }),
-    [messages, subagentHistories, status, loading, loadingStartTime, isThinking, streamingActive],
+    [messages, subagentHistories, status, loading, loadingStartTime, isThinking, streamingActive, streamingHint],
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

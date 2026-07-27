@@ -9,9 +9,10 @@ import {
   setupApiKey,
   buildCliEnv,
   buildWebviewControlledSettingsOverride,
+  loadCodeaideSkillPlugins,
 } from '../../config/api-config.js';
 import { selectWorkingDirectory } from '../../utils/path-utils.js';
-import { mapModelIdToSdkName, resolveModelFromSettings, setModelEnvironmentVariables } from '../../utils/model-utils.js';
+import { mapModelIdToSdkName, resolveModelFromSettings, setModelEnvironmentVariables, setSubagentModelEnvironmentVariable } from '../../utils/model-utils.js';
 import { AsyncStream } from '../../utils/async-stream.js';
 import { canUseTool } from '../../permission-handler.js';
 import { buildContentBlocks, loadAttachments } from './attachment-service.js';
@@ -37,8 +38,10 @@ import { createPreToolUseHook } from './permission-mode.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
 import { setActiveQueryResult } from './message-session-registry.js';
 import { normalizeStreamDelta, resolveSnapshotDelta, resetTurnBlockState } from './stream-delta-normalizer.js';
+import { processSystemMessage } from './stream-event-processor.js';
 import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
+import { emit } from '../../protocol/emitter.js';
 
 // ========== Internal helpers for deduplication ==========
 
@@ -66,10 +69,26 @@ function resolveThinkingConfig(settings) {
 }
 
 /**
+ * Resolve the webview-selected subagent model for this request.
+ * Applies the same settings-env remapping as the main model so a Claude-family
+ * selection follows the provider's configured model names. Returns null when
+ * the request carries no selection ("follow the main model / CLI default").
+ */
+function resolveSubagentModelState(subagentModel, settingsEnv) {
+  const raw = typeof subagentModel === 'string' ? subagentModel.trim() : '';
+  if (!raw) return null;
+  return resolveModelFromSettings(raw, settingsEnv) || raw;
+}
+
+/**
  * Build query options object shared by both send functions.
  */
-function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId }) {
+function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId, subagentModelId }) {
   const claudeCliOverride = getClaudeCliPathOverride();
+  // Phase 5c: managed providers no longer sync skills into ~/.claude/settings.json;
+  // enabled skills are passed via the SDK plugins option instead (null for
+  // local/CLI login modes, whose settings.json plugins flow through settingSources).
+  const skillPlugins = loadCodeaideSkillPlugins();
   return {
     cwd: workingDirectory,
     permissionMode,
@@ -77,9 +96,10 @@ function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, max
     maxTurns: 100,
     enableFileCheckpointing: true,
     env: buildCliEnv(),
-    settings: buildWebviewControlledSettingsOverride(modelId),
+    settings: buildWebviewControlledSettingsOverride(modelId, subagentModelId || ''),
     ...(maxThinkingTokens !== undefined && { maxThinkingTokens }),
     ...(streamingEnabled && { includePartialMessages: true }),
+    ...(skillPlugins && { plugins: skillPlugins }),
     additionalDirectories: Array.from(
       new Set([workingDirectory, process.env.IDEA_PROJECT_PATH, process.env.PROJECT_PATH].filter(Boolean))
     ),
@@ -153,7 +173,7 @@ function buildSystemPromptAppend(openedFiles, agentPrompt, message) {
  */
 function processStreamMessage(msg, state, logPrefix) {
   if (state.streamingEnabled && !state.streamStarted) {
-    process.stdout.write('[STREAM_START]\n');
+    emit('stream_start');
     state.streamStarted = true;
   }
 
@@ -174,7 +194,7 @@ function processStreamMessage(msg, state, logPrefix) {
         resetTurnBlockState(state);
         // Emit BLOCK_RESET — mirrors stream-event-processor.js, see there for rationale.
         if (state.streamingEnabled) {
-          process.stdout.write('[BLOCK_RESET]\n');
+          emit('block_reset');
         }
         if (event.message?.usage) {
           // IMPORTANT: Must use mergeUsage(state.accumulatedUsage, ...) to accumulate across turns.
@@ -190,16 +210,25 @@ function processStreamMessage(msg, state, logPrefix) {
         if (event.delta.type === 'text_delta' && event.delta.text) {
           const delta = normalizeStreamDelta(state, 'text', event.index, event.delta.text);
           if (delta) {
-            process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(delta)}\n`);
+            emit('content_delta', delta);
             state.lastAssistantContent += delta;
           }
         } else if (event.delta.type === 'thinking_delta' && event.delta.thinking) {
           const delta = normalizeStreamDelta(state, 'thinking', event.index, event.delta.thinking);
           if (delta) {
-            process.stdout.write(`[THINKING_DELTA] ${JSON.stringify(delta)}\n`);
+            emit('thinking_delta', delta);
             state.lastThinkingContent += delta;
           }
         }
+      }
+      if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+        // Forward the tool name once at block start so the UI can hint during
+        // the silent input_json_delta argument-generation phase. Mirrors
+        // stream-event-processor.js — both streaming paths must emit identically.
+        emit('tool_preparing', {
+          name: event.content_block.name || '',
+          index: typeof event.index === 'number' ? event.index : 0
+        });
       }
       if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
         console.log('[THINKING_START]');
@@ -208,13 +237,13 @@ function processStreamMessage(msg, state, logPrefix) {
     return;
   }
 
-  // Determine whether to output the full [MESSAGE] tag
+  // Determine whether to emit the full 'message' envelope
   let shouldOutput = true;
   if (state.streamingEnabled && msg.type === 'assistant') {
     const c = msg.message?.content;
     if (!Array.isArray(c) || !c.some(b => b.type === 'tool_use')) shouldOutput = false;
   }
-  if (shouldOutput) console.log('[MESSAGE]', JSON.stringify(msg));
+  if (shouldOutput) emit('message', msg);
 
   // Process assistant content blocks
   if (msg.type === 'assistant') {
@@ -248,7 +277,7 @@ function processStreamMessage(msg, state, logPrefix) {
     if (Array.isArray(content)) {
       for (const block of content) {
         if (block.type === 'tool_result') {
-          console.log('[TOOL_RESULT]', JSON.stringify(truncateToolResultBlock(block)));
+          emit('tool_result', truncateToolResultBlock(block));
         }
       }
     }
@@ -257,9 +286,13 @@ function processStreamMessage(msg, state, logPrefix) {
   // Capture session_id
   if (msg.type === 'system' && msg.session_id) {
     state.currentSessionId = msg.session_id;
-    console.log('[SESSION_ID]', msg.session_id);
+    emit('session_id', msg.session_id);
     setActiveQueryResult(msg.session_id, state.queryResult);
   }
+
+  // Forward compaction lifecycle signals (system/status 'compacting' and
+  // system/compact_boundary) so the UI can indicate context compression.
+  processSystemMessage(msg);
 
   // Error result detection
   if (msg.type === 'result' && msg.is_error) {
@@ -271,7 +304,7 @@ function processStreamMessage(msg, state, logPrefix) {
 /** Emit text content delta with streaming fallback support. */
 function emitTextDelta(currentText, state, blockIndex = 0) {
   if (!state.streamingEnabled) {
-    console.log('[CONTENT]', truncateErrorContent(currentText));
+    emit('content', truncateErrorContent(currentText));
     return;
   }
   // Single-source the delta through the normalizer (see resolveSnapshotDelta).
@@ -281,7 +314,7 @@ function emitTextDelta(currentText, state, blockIndex = 0) {
   //   - hasStreamEvents && !hadPrevious: stream will deliver this block, suppress
   const { delta, hadPrevious } = resolveSnapshotDelta(state, 'text', blockIndex, currentText);
   if (delta && (!state.hasStreamEvents || hadPrevious)) {
-    process.stdout.write(`[CONTENT_DELTA] ${JSON.stringify(delta)}\n`);
+    emit('content_delta', delta);
   }
   state.lastAssistantContent = currentText;
 }
@@ -289,12 +322,12 @@ function emitTextDelta(currentText, state, blockIndex = 0) {
 /** Emit thinking content delta with streaming fallback support. */
 function emitThinkingDelta(thinkingText, state, blockIndex = 0) {
   if (!state.streamingEnabled) {
-    console.log('[THINKING]', thinkingText);
+    emit('thinking', thinkingText);
     return;
   }
   const { delta, hadPrevious } = resolveSnapshotDelta(state, 'thinking', blockIndex, thinkingText);
   if (delta && (!state.hasStreamEvents || hadPrevious)) {
-    process.stdout.write(`[THINKING_DELTA] ${JSON.stringify(delta)}\n`);
+    emit('thinking_delta', delta);
   }
   state.lastThinkingContent = thinkingText;
 }
@@ -353,11 +386,11 @@ async function executeWithRetry({ createQueryResult, streamingEnabled, resumeSes
         // NOTE: Do NOT emit accumulatedUsage at stream end.
         // The assistant message's usage (sent via emitUsageTag) is the authoritative final value.
         // Emitting accumulatedUsage here would send a redundant or potentially stale value.
-        process.stdout.write('[STREAM_END]\n');
+        emit('stream_end');
         outerStreamState.streamEnded = true;
       }
       outerStreamState.streamStarted = state.streamStarted;
-      console.log('[MESSAGE_END]');
+      emit('message_end');
       console.log(JSON.stringify({ success: true, sessionId: state.currentSessionId }));
 
       // Fire-and-forget: generate AI title for new sessions (not resumes)
@@ -417,7 +450,7 @@ function handleSendError(error, streamState, sdkStderrLines) {
     // NOTE: Do NOT emit accumulatedUsage at stream end, even on error.
     // If assistant messages were received, emitUsageTag already sent the correct usage.
     // If no assistant message was received, the usage would be incomplete anyway.
-    process.stdout.write('[STREAM_END]\n');
+    emit('stream_end');
   }
   const payload = buildConfigErrorPayload(error);
   if (sdkStderrLines.length > 0) {
@@ -426,7 +459,7 @@ function handleSendError(error, streamState, sdkStderrLines) {
     payload.details.sdkError = sdkErrorText;
   }
   payload.error = truncateString(payload.error);
-  console.error('[SEND_ERROR]', JSON.stringify(payload));
+  emit('send_error', payload);
 }
 
 // ========== Exported send functions ==========
@@ -442,7 +475,7 @@ function handleSendError(error, streamState, sdkStderrLines) {
  * @param {string} agentPrompt - Agent prompt (optional)
  * @param {boolean} streaming - Whether to enable streaming (optional, defaults to config value)
  */
-export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null) {
+export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null, subagentModel = null) {
   console.log('[DIAG] ========== sendMessage() START ==========');
   console.log('[DIAG] params:', { msgLen: message ? message.length : 0, resumeSessionId: resumeSessionId || '(new)', cwd, permissionMode, model });
 
@@ -455,7 +488,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
       console.log('[DEBUG] Custom Base URL detected:', baseUrl);
     }
     console.log('[DEBUG] API config:', { apiKeySource, baseUrl: baseUrl || 'https://api.anthropic.com', baseUrlSource });
-    console.log('[MESSAGE_START]');
+    emit('message_start');
 
     const workingDirectory = selectWorkingDirectory(cwd);
     try { process.chdir(workingDirectory); } catch (e) { console.error('[WARNING] chdir failed:', e.message); }
@@ -466,6 +499,8 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
     const resolvedModel = resolveModelFromSettings(model, settings?.env);
     console.log('[DEBUG] Model:', model, '->', sdkModelName, '(API:', resolvedModel + ')');
     setModelEnvironmentVariables(resolvedModel, model);
+    const resolvedSubagentModel = resolveSubagentModelState(subagentModel, settings?.env);
+    setSubagentModelEnvironmentVariable(resolvedSubagentModel);
 
     const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
 
@@ -479,7 +514,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
 
     const preToolUseHook = createPreToolUseHook(effectivePermissionMode, workingDirectory);
     const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    const options = buildQueryOptions({ workingDirectory, permissionMode: effectivePermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model });
+    const options = buildQueryOptions({ workingDirectory, permissionMode: effectivePermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model, subagentModelId: resolvedSubagentModel });
 
     if (normalizedReasoningEffort) {
       options.effort = normalizedReasoningEffort;
@@ -520,7 +555,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
   const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
   try {
     setupApiKey();
-    console.log('[MESSAGE_START]');
+    emit('message_start');
 
     const workingDirectory = selectWorkingDirectory(cwd);
     try { process.chdir(workingDirectory); } catch (e) { console.error('[WARNING] chdir failed:', e.message); }
@@ -536,6 +571,8 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     const resolvedAttachModel = resolveModelFromSettings(model, settings?.env);
     console.log('[DEBUG] (withAttachments) Model:', model, '->', resolvedAttachModel);
     setModelEnvironmentVariables(resolvedAttachModel, model);
+    const resolvedSubagentModel = resolveSubagentModelState(stdinData?.subagentModel, settings?.env);
+    setSubagentModelEnvironmentVariable(resolvedSubagentModel);
 
     const contentBlocks = await buildContentBlocks(attachments, message, resolvedAttachModel);
     const userMessage = {
@@ -555,7 +592,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     console.log('[DEBUG] (withAttachments) Config:', { normalizedPermissionMode, alwaysThinkingEnabled, maxThinkingTokens, streamingEnabled, reasoningEffort });
 
     const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    const options = buildQueryOptions({ workingDirectory, permissionMode: normalizedPermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model });
+    const options = buildQueryOptions({ workingDirectory, permissionMode: normalizedPermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model, subagentModelId: resolvedSubagentModel });
 
     if (reasoningEffort) {
       options.effort = reasoningEffort;

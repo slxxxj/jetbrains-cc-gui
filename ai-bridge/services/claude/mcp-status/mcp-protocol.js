@@ -8,7 +8,7 @@ export const MCP_PROTOCOL_VERSION = '2024-11-05';
 
 /** Client info sent during MCP initialize */
 export const MCP_CLIENT_INFO = Object.freeze({
-  name: 'codemoss-ide',
+  name: 'codeaide-ide',
   version: '1.0.0'
 });
 

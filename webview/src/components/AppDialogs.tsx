@@ -9,13 +9,13 @@ import RewindSelectDialog, { type RewindableMessage } from './RewindSelectDialog
 import ChangelogDialog from './ChangelogDialog';
 import CustomModelDialog from './settings/CustomModelDialog';
 import { usePluginModels } from './settings/hooks/usePluginModels';
-import { STORAGE_KEYS } from '../types/provider';
 import { CHANGELOG_DATA } from '../version/changelog';
 import { useDialogs } from '../contexts/DialogContext';
 import { useUIState } from '../contexts/UIStateContext';
 import ContextUsageDialog from './ContextUsageDialog';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { setSkipNewSessionConfirm } from '../utils/skipNewSessionConfirm';
+import { getCustomModelsStorageKey } from '../utils/providerCapabilities';
 
 /**
  * Wrapper that manages plugin-level custom models for the add-model dialog.
@@ -30,9 +30,7 @@ const AddModelDialogWrapper = ({
   onClose: () => void;
   currentProvider: string;
 }) => {
-  const storageKey = currentProvider === 'codex'
-    ? STORAGE_KEYS.CODEX_CUSTOM_MODELS
-    : STORAGE_KEYS.CLAUDE_CUSTOM_MODELS;
+  const storageKey = getCustomModelsStorageKey(currentProvider);
   const { models, updateModels } = usePluginModels(storageKey);
   return (
     <CustomModelDialog

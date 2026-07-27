@@ -2,12 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useTranslation } from 'react-i18next';
 import {
   REASONING_LEVELS,
-  EFFORT_SUPPORTED_CLAUDE_MODELS,
-  MAX_EFFORT_CLAUDE_MODELS,
-  XHIGH_EFFORT_CLAUDE_MODELS,
   type ReasoningEffort,
 } from '../types';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { getAvailableReasoningLevels, supportsReasoningEffort } from '../../../utils/providerCapabilities';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -49,25 +47,11 @@ export const ReasoningSelect = ({ value, onChange, disabled, selectedModel, curr
     preferredAlignment: 'right',
   });
 
-  // Determine visibility: for Claude, hide if model doesn't support adaptive thinking
-  const isVisible = currentProvider !== 'claude' || !selectedModel || EFFORT_SUPPORTED_CLAUDE_MODELS.has(selectedModel);
+  // Determine visibility: hidden when the provider/model pair has no reasoning support
+  const isVisible = supportsReasoningEffort(currentProvider, selectedModel);
 
-  // Build the list of available levels for the current model
-  const availableLevels = REASONING_LEVELS.filter(level => {
-    if (currentProvider !== 'claude') {
-      return level.id !== 'max';
-    }
-    if (!selectedModel) {
-      return true;
-    }
-    if (level.id === 'xhigh') {
-      return XHIGH_EFFORT_CLAUDE_MODELS.has(selectedModel);
-    }
-    if (level.id === 'max') {
-      return MAX_EFFORT_CLAUDE_MODELS.has(selectedModel);
-    }
-    return true;
-  });
+  // Build the list of available levels for the current provider/model
+  const availableLevels = getAvailableReasoningLevels(currentProvider, selectedModel);
 
   const currentLevel = availableLevels.find(l => l.id === value) || availableLevels[availableLevels.length - 2] || availableLevels[0];
 

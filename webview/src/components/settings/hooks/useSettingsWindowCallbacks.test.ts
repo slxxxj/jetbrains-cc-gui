@@ -10,6 +10,9 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+/** Expected wire format: a JSON envelope {type, payload} (payload omitted when undefined). */
+const env = (type: string, payload?: unknown) => JSON.stringify({ type, payload });
+
 describe('useSettingsWindowCallbacks', () => {
   const createDeps = (): SettingsWindowCallbacksDeps => ({
     setNodePath: vi.fn(),
@@ -71,18 +74,18 @@ describe('useSettingsWindowCallbacks', () => {
     expect(deps.loadProviders).toHaveBeenCalledTimes(1);
     expect(deps.loadCodexProviders).toHaveBeenCalledTimes(1);
     expect(deps.loadAgents).toHaveBeenCalledTimes(1);
-    expect(window.sendToJava).not.toHaveBeenCalledWith('get_current_claude_config:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_node_path:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_working_directory:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_editor_font_config:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_streaming_enabled:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_codex_sandbox_mode:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_commit_prompt:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_commit_ai_config:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_prompt_enhancer_config:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_sound_notification_config:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_ui_font_config:');
-    expect(window.sendToJava).toHaveBeenCalledWith('get_code_font_config:');
+    expect(window.sendToJava).not.toHaveBeenCalledWith(env('get_current_claude_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_node_path'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_working_directory'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_editor_font_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_streaming_enabled'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_codex_sandbox_mode'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_commit_prompt'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_commit_ai_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_prompt_enhancer_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_sound_notification_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_ui_font_config'));
+    expect(window.sendToJava).toHaveBeenCalledWith(env('get_code_font_config'));
   });
 
   it('registers prompt enhancer callback and updates state from backend payload', () => {
@@ -143,7 +146,7 @@ describe('useSettingsWindowCallbacks', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/MapleMono.ttf',
-      fontFamily: 'CC GUI Custom',
+      fontFamily: 'CodeAide Custom',
       fontSize: 14,
       lineSpacing: 1.35,
     }));
@@ -151,7 +154,7 @@ describe('useSettingsWindowCallbacks', () => {
     expect((deps as any).setUiFontConfig).toHaveBeenCalledWith(expect.objectContaining({
       mode: 'customFile',
       customFontPath: '/tmp/MapleMono.ttf',
-      fontFamily: 'CC GUI Custom',
+      fontFamily: 'CodeAide Custom',
     }));
   });
 
@@ -164,7 +167,7 @@ describe('useSettingsWindowCallbacks', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/FiraCode.ttf',
-      fontFamily: 'CC GUI Code Custom',
+      fontFamily: 'CodeAide Code Custom',
       fontSize: 14,
       lineSpacing: 1.35,
     }));
@@ -172,7 +175,7 @@ describe('useSettingsWindowCallbacks', () => {
     expect((deps as any).setCodeFontConfig).toHaveBeenCalledWith(expect.objectContaining({
       mode: 'customFile',
       customFontPath: '/tmp/FiraCode.ttf',
-      fontFamily: 'CC GUI Code Custom',
+      fontFamily: 'CodeAide Code Custom',
     }));
   });
 
@@ -185,7 +188,7 @@ describe('useSettingsWindowCallbacks', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/MapleMono.ttf',
-      fontFamily: 'CC GUI Custom',
+      fontFamily: 'CodeAide Custom',
       fontSize: 14,
       lineSpacing: 1.35,
       fontBase64: 'AAECA',
@@ -211,7 +214,7 @@ describe('useSettingsWindowCallbacks', () => {
       mode: 'customFile',
       effectiveMode: 'customFile',
       customFontPath: '/tmp/FiraCode.ttf',
-      fontFamily: 'CC GUI Code Custom',
+      fontFamily: 'CodeAide Code Custom',
       fontSize: 14,
       lineSpacing: 1.35,
       fontBase64: 'AAECA',

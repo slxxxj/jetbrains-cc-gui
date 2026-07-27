@@ -1,7 +1,8 @@
 import type { FileItem, DropdownItemData } from '../types';
 import { getFileIcon, getFolderIcon } from '../../../utils/fileIcons';
 import { icon_terminal, icon_server } from '../../../utils/icons';
-import { debugError, debugLog, debugWarn } from '../../../utils/debug.js';
+import { debugError, debugLog } from '../../../utils/debug.js';
+import { sendToJava } from '../../../utils/bridge';
 
 // Request queue management
 let pendingResolve: ((files: FileItem[]) => void) | null = null;
@@ -42,17 +43,6 @@ function setupFileListCallback() {
         pendingReject = null;
       }
     };
-  }
-}
-
-/**
- * Send request to Java
- */
-function sendToJava(event: string, payload: Record<string, unknown>) {
-  if (window.sendToJava) {
-    window.sendToJava(`${event}:${JSON.stringify(payload)}`);
-  } else {
-    debugWarn('[fileReferenceProvider] sendToJava not available');
   }
 }
 

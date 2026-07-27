@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next';
 import { AVAILABLE_MODES, type PermissionMode } from '../types';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { getProviderCapabilities } from '../../../utils/providerCapabilities';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -44,19 +45,18 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
     preferredAlignment: 'right',
   });
 
+  const capabilities = getProviderCapabilities(provider);
+
   const modeOptions = useMemo(() => {
-    if (provider === 'codex') {
-      // Codex supports default/acceptEdits/bypassPermissions; plan mode is not exposed yet.
-      return AVAILABLE_MODES.filter((mode) => mode.id !== 'plan');
-    }
-    return AVAILABLE_MODES;
-  }, [provider]);
+    const availableModes = capabilities.permissionModes;
+    return AVAILABLE_MODES.filter((mode) => availableModes.includes(mode.id));
+  }, [capabilities]);
 
   const currentMode = modeOptions.find(m => m.id === value) || modeOptions[0];
 
   // Helper function to get translated mode text
   const getModeText = (modeId: PermissionMode, field: 'label' | 'tooltip' | 'description') => {
-    if (provider === 'codex') {
+    if (capabilities.modeLabelNamespace === 'codexModes') {
       const codexKey = `codexModes.${modeId}.${field}`;
       const fallbackKey = `modes.${modeId}.${field}`;
       return t(codexKey, { defaultValue: t(fallbackKey) });

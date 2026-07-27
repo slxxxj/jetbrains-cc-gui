@@ -12,6 +12,9 @@ export function useClaudeProvider() {
   const [claudePermissionMode, setClaudePermissionMode] = useState<PermissionMode>('default');
   const [longContextEnabled, setLongContextEnabled] = useState(true);
   const [claudeSettingsAlwaysThinkingEnabled, setClaudeSettingsAlwaysThinkingEnabled] = useState(true);
+  // Subagent (Task tool) model override. '' = no override (follow the main
+  // model / CLI default); Claude-only.
+  const [selectedSubagentModel, setSelectedSubagentModel] = useState('');
 
   return {
     selectedClaudeModel,
@@ -22,6 +25,8 @@ export function useClaudeProvider() {
     setLongContextEnabled,
     claudeSettingsAlwaysThinkingEnabled,
     setClaudeSettingsAlwaysThinkingEnabled,
+    selectedSubagentModel,
+    setSelectedSubagentModel,
   };
 }
 

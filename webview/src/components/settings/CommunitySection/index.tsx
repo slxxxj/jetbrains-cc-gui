@@ -5,7 +5,7 @@ import { CHANGELOG_DATA } from '../../../version/changelog';
 import wxqImage from '../../../assets/images/wxq.png';
 import styles from './style.module.less';
 
-const GITHUB_URL = 'https://github.com/zhukunpenglinyutong/idea-claude-code-gui';
+const GITHUB_URL = 'https://github.com/zhukunpenglinyutong/codeaide';
 
 interface CommunitySectionProps {
   addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;

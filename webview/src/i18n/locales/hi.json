@@ -92,6 +92,8 @@
     "unknownFile": "Unknown file",
     "attachmentsUploaded": "[अटैचमेंट अपलोड हो गए]",
     "streamingConnected": "{{provider}} कनेक्ट हो गया, आपके प्रश्न को समझ रहा है",
+    "preparingToolCall": "टूल कॉल तैयार किया जा रहा है: {{toolName}}",
+    "compactingContext": "कॉन्टेक्स्ट संपीड़ित किया जा रहा है",
     "showEarlierMessages": "{{count}} पुराने संदेश दिखाएं",
     "totalDuration": "इस जवाब में लगा समय",
     "tokenUsage": "{{input}} इन / {{output}} आउट",
@@ -316,28 +318,17 @@
     "dependenciesDesc": "AI SDK निर्भरताओं की इंस्टॉलेशन और अपडेट प्रबंधित करें",
     "dependency": {
       "title": "SDK निर्भरता प्रबंधन",
-      "description": "AI SDK निर्भरताएं प्रबंधित करें। पहली बार उपयोग करने से पहले आवश्यक SDK इंस्टॉल करें।",
-      "installPolicyTip": "इंस्टॉलेशन में समस्या? त्रुटि को टर्मिनल CLI AI में कॉपी करके हल करें",
+      "description": "AI SDK निर्भरताओं की स्थापना स्थिति देखें। निर्भरताएं प्लगइन द्वारा स्वचालित रूप से स्थापित और अपडेट की जाती हैं।",
+      "installPolicyTip": "SDK निर्भरताएं प्लगइन द्वारा स्वचालित रूप से स्थापित/अपडेट की जाती हैं; विफलता पर स्वचालित पुनः प्रयास होता है। विवरण के लिए IDE लॉग देखें।",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI सुविधाओं के लिए आवश्यक। Claude Code SDK और संबंधित निर्भरताएं शामिल हैं।",
       "codexSdkName": "Codex SDK",
       "codexSdkDescription": "Codex AI सुविधाओं के लिए आवश्यक। OpenAI Codex SDK शामिल है।",
       "loading": "निर्भरता स्थिति लोड हो रही है...",
-      "install": "इंस्टॉल करें",
-      "installing": "इंस्टॉल हो रहा है...",
-      "uninstall": "अनइंस्टॉल करें",
-      "uninstalling": "अनइंस्टॉल हो रहा है...",
-      "update": "अपडेट करें",
-      "updateAvailable": "अपडेट उपलब्ध",
-      "installLogs": "इंस्टॉलेशन लॉग",
-      "waitingForLogs": "लॉग आउटपुट की प्रतीक्षा कर रहा है...",
-      "nodeNotConfigured": "Node.js कॉन्फ़िगर नहीं है। कृपया पहले बुनियादी सेटिंग्स में Node.js पथ सेट करें।",
-      "installSuccess": "{{name}} सफलतापूर्वक इंस्टॉल हो गया",
-      "installFailed": "इंस्टॉलेशन विफल: {{error}}",
-      "uninstallSuccess": "{{name}} अनइंस्टॉल हो गया",
-      "uninstallFailed": "अनइंस्टॉल विफल: {{error}}",
-      "updating": "अपडेट हो रहा है...",
-      "updateSuccess": "{{name}} सफलतापूर्वक अपडेट हो गया"
+      "statusInstalled": "स्थापित",
+      "statusNotInstalled": "स्थापित नहीं",
+      "statusInstalling": "स्थापित हो रहा…",
+      "statusError": "विफल, स्वचालित पुनः प्रयास जारी"
     },
     "usage": "उपयोग सांख्यिकी",
     "usageDesc": "अपनी Token खपत, लागत सांख्यिकी और उपयोग प्रवृत्ति विश्लेषण देखें",
@@ -365,12 +356,20 @@
       "prompt": {
         "label": "Additional Prompt",
         "placeholder": "Add your extra requirements here, e.g., generate commit in English, include issue number, etc...",
-        "hint": "The plugin has built-in CCG Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
+        "hint": "The plugin has built-in CodeAide Commits specification prompts. Content you add here will be used as additional requirements, and AI will prioritize your instructions."
       },
       "projectPrompt": {
         "label": "प्रोजेक्ट-विशिष्ट अतिरिक्त प्रॉम्प्ट",
         "placeholder": "यहाँ प्रोजेक्ट-विशिष्ट आवश्यकताएँ जोड़ें, जैसे: scope में मॉड्यूल नाम का उपयोग करें, commit body में प्रभाव क्षेत्र शामिल करें, आदि...",
         "hint": "यह प्रॉम्प्ट केवल वर्तमान प्रोजेक्ट पर लागू होता है और वैश्विक अतिरिक्त प्रॉम्प्ट के साथ मिलकर जोड़ा जाता है। जब दोनों में विरोध हो, तो प्रोजेक्ट प्रॉम्प्ट को प्राथमिकता दी जाती है। विभिन्न प्रोजेक्ट्स को स्वतंत्र रूप से कॉन्फ़िगर किया जा सकता है।"
+      },
+      "agentConfig": {
+        "label": "समानांतर एजेंट (बड़े बदलाव)",
+        "batchSize": "प्रति एजेंट फ़ाइलें",
+        "maxParallel": "अधिकतम समानांतर एजेंट",
+        "fastMode": "फास्ट मोड (थिंकिंग छोड़ें)",
+        "includeFileDetail": "प्रति-फ़ाइल परिवर्तन विवरण जोड़ें",
+        "hint": "जब बदलाव संख्या बैच आकार से अधिक हो, तो प्रत्येक बैच एक एजेंट समानांतर चलाता है और सारांश एक कमिट संदेश में मिल जाते हैं, जिससे टाइमआउट से बचा जाता है।"
       },
       "codeReview": {
         "comingSoon": "Coming Soon",
@@ -505,6 +504,7 @@
       "cliLoginDisableTitle": "CLI लॉगिन प्राधिकरण रद्द करें",
       "cliLoginDisableMessage": "यह CLI लॉगिन स्थिति का उपयोग बंद कर देगा और जब तक आप स्पष्ट रूप से कोई अन्य प्रदाता सक्षम नहीं करते, Claude को बिना किसी सक्रिय प्रदाता के छोड़ देगा।",
       "cliLoginAccountInfo": "के रूप में लॉग इन: {{email}}",
+      "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
       "subscriptionTutorial": {
         "entry": "सदस्यता खाता गाइड",
         "dialogTitle": "सदस्यता खाता कैसे उपयोग करें",
@@ -530,7 +530,7 @@
             "proxyConfigCodeLabel": "~/.claude/settings.json",
             "proxyConfigCode": "{\n  \"env\": {\n    \"HTTP_PROXY\": \"http://127.0.0.1:7897\",\n    \"HTTPS_PROXY\": \"http://127.0.0.1:7897\"\n  }\n}",
             "issuePrefix": "यदि यह अभी भी काम नहीं करता, तो GitHub पर समस्या रिपोर्ट करें: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           },
           "codex": {
             "title": "Codex सदस्यता खाता सेटअप",
@@ -544,7 +544,7 @@
             "proxyConfigCodeLabel": "",
             "proxyConfigCode": "",
             "issuePrefix": "यदि यह अभी भी काम नहीं करता, तो GitHub पर समस्या रिपोर्ट करें: ",
-            "issueUrl": "https://github.com/zhukunpenglinyutong/idea-claude-code-gui/issues"
+            "issueUrl": "https://github.com/zhukunpenglinyutong/codeaide/issues"
           }
         }
       },
@@ -591,7 +591,7 @@
         "customModels": "कस्टम मॉडल",
         "customModelsHint": "इस प्रदाता द्वारा समर्थित अतिरिक्त मॉडल जोड़ें। कस्टम मॉडल मॉडल चयन सूची के शीर्ष पर दिखाई देंगे",
         "jsonConfig": "JSON कॉन्फ़िगरेशन",
-        "jsonConfigDescription": "यहाँ पूर्ण settings.json सामग्री कॉन्फ़िगर करें, सभी फ़ील्ड का समर्थन करता है (जैसे model, alwaysThinkingEnabled, ccSwitchProviderId, codemossProviderId, आदि)",
+        "jsonConfigDescription": "यहाँ पूर्ण settings.json सामग्री कॉन्फ़िगर करें, सभी फ़ील्ड का समर्थन करता है (जैसे model, alwaysThinkingEnabled, ccSwitchProviderId, codeaideProviderId, आदि)",
         "jsonError": "अमान्य JSON प्रारूप",
         "required": "*",
         "showApiKey": "दिखाएं",
@@ -657,6 +657,7 @@
         "cliLoginAuthorizeDetail": "सुनिश्चित करें कि आपने टर्मिनल में 'codex login' से लॉगिन किया हो। आपके वर्तमान config.toml को बैकअप किया जाएगा।",
         "cliLoginDisableTitle": "Codex CLI लॉगिन अक्षम करें",
         "cliLoginDisableMessage": "यह पुराने config.toml को पुनर्स्थापित करेगा और API की प्रमाणीकरण पर स्विच करेगा।",
+        "cliLoginIsolationNote": "This mode shares configuration with the external CLI and is not covered by the plugin's isolation.",
         "modelIdRequired": "Model ID is required",
         "modelIdInvalid": "Invalid model ID format (only letters, numbers, dots, hyphens, underscores, slashes and colons allowed)",
         "modelIdDuplicate": "Model ID already exists",
@@ -1395,6 +1396,13 @@
     "searchPlaceholder": "मॉडल खोजें",
     "noModelsFound": "कोई मॉडल नहीं मिला",
     "hiddenModelCount": "+ {{count}} और मॉडल. खोजने के लिए टाइप करें.",
+    "refreshList": "Refresh model list",
+    "refreshListHint": "Fetch the latest model list from the current provider",
+    "subagent": {
+      "title": "Select subagent model",
+      "default": "Default (follow main model)",
+      "defaultDescription": "Subagents use the main model"
+    },
     "claude": {
       "sonnet46": {
         "label": "Sonnet 4.6",
@@ -1656,18 +1664,13 @@
     },
     "sdkNativeBinaryMissing": {
       "title": "SDK स्थापना अधूरी — नेटिव बाइनरी अनुपस्थित",
-      "intro": "यह Taobao npm मिरर की एक ज्ञात समस्या है (प्लगइन बग नहीं)। मिरर ने प्लेटफ़ॉर्म-विशिष्ट फ़ाइलों को पूरी तरह सिंक नहीं किया है। आप नीचे दिए गए विकल्पों में से किसी एक से इसे मैन्युअल रूप से हल कर सकते हैं:",
+      "intro": "This is a known issue with the Taobao npm mirror (not a plugin bug) — the mirror hasn't fully synchronized the platform-specific files. The plugin will retry the installation automatically; you can also speed up recovery with the option below:",
       "reason": "Taobao मिरर के सिंक पूरा होने पर यह समस्या स्वतः ही गायब हो जाएगी — चिंता की कोई बात नहीं है।",
       "solutions": {
         "switchRegistry": {
-          "title": "विकल्प 1: अस्थायी रूप से आधिकारिक रजिस्ट्री पर स्विच करें और पुनः इंस्टॉल करें",
+          "title": "Option 1: Switch to the official registry and let the plugin retry",
           "step0": "1. अपने टर्मिनल में चलाएं (आधिकारिक npm रजिस्ट्री पर स्विच करें):",
-          "step1": "2. प्लगइन की निर्भरता प्रबंधन सेटिंग्स खोलें और पुनः इंस्टॉल पर क्लिक करें:",
-          "step2": "3. पुनः इंस्टॉलेशन पूरा होने के बाद, Taobao मिरर पर वापस स्विच करें:"
-        },
-        "downgrade": {
-          "title": "विकल्प 2: पुराने संस्करण पर वापस जाएं",
-          "step0": "निर्भरता प्रबंधन में SDK संस्करण को v0.2.112 या उससे पहले के संस्करण पर स्विच करें। स्विच करने के बाद IDEA को पुनरारंभ करें।"
+          "step1": "2. The plugin retries the installation automatically; afterwards you can switch back to the Taobao mirror (optional). Check the logs if it still fails:"
         }
       }
     },
@@ -1681,9 +1684,8 @@
           "step0": "अपना संस्करण देखने के लिए टर्मिनल में नीचे दिया गया कमांड चलाएँ। Node 22 या वर्तमान LTS की अनुशंसा की जाती है — उपयोगकर्ताओं ने Node 24 पर कई समस्याएँ बताई हैं, इसलिए Node 20 या 22 को प्राथमिकता दें:"
         },
         "reinstallLatestSdk": {
-          "title": "विकल्प 2: आधिकारिक npm रजिस्ट्री से नवीनतम SDK पुनः इंस्टॉल करें",
-          "step0": "1. आधिकारिक npm रजिस्ट्री पर स्विच करें (Taobao मिरर का उपयोग न करें — हो सकता है उसके पास नवीनतम संस्करण न हो):",
-          "step1": "2. निर्भरता प्रबंधन खोलें और नवीनतम SDK पुनः इंस्टॉल करें:"
+          "title": "Option 2: Switch to the official npm registry and let the plugin reinstall the latest SDK",
+          "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
     }

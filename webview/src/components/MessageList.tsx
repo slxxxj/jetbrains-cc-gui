@@ -1,6 +1,7 @@
 import { memo, useState, useEffect, useRef, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../types';
+import type { StreamingHint } from '../contexts/MessagesContext';
 import { getMessageKey } from '../utils/messageUtils';
 import { MessageItem } from './MessageItem';
 import WaitingIndicator from './WaitingIndicator';
@@ -52,6 +53,8 @@ interface MessageListProps {
   isThinking: boolean;
   loading: boolean;
   loadingStartTime: number | null;
+  /** Transient streaming status hint forwarded to the WaitingIndicator. */
+  streamingHint?: StreamingHint | null;
   t: TFunction;
   getMessageText: (message: ClaudeMessage) => string;
   getContentBlocks: (message: ClaudeMessage) => ClaudeContentBlock[];
@@ -73,6 +76,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
   isThinking,
   loading,
   loadingStartTime,
+  streamingHint,
   t,
   getMessageText,
   getContentBlocks,
@@ -192,8 +196,20 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
         );
       })}
 
-      {/* Loading indicator */}
-      {loading && <WaitingIndicator startTime={loadingStartTime ?? undefined} />}
+      {/* Loading indicator — shows the transient streaming hint (tool
+          preparation / context compaction) in place of the generic label. */}
+      {loading && (
+        <WaitingIndicator
+          startTime={loadingStartTime ?? undefined}
+          hint={
+            streamingHint?.kind === 'tool_preparing'
+              ? t('chat.preparingToolCall', { toolName: streamingHint.toolName })
+              : streamingHint?.kind === 'compacting'
+                ? t('chat.compactingContext')
+                : undefined
+          }
+        />
+      )}
       <div ref={messagesEndRef} />
     </div>
   );
