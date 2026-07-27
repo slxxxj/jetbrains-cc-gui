@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
+import type { ChatMode, CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
 import { ButtonArea } from './ButtonArea.js';
 import { CompletionDropdown } from './Dropdown/index.js';
@@ -27,6 +27,7 @@ export function ChatInputBoxFooter({
   reasoningEffort,
   codexFastMode,
   subagentModel,
+  chatMode,
   onSubmit,
   onStop,
   onModeSelect,
@@ -35,6 +36,7 @@ export function ChatInputBoxFooter({
   onReasoningChange,
   onCodexFastModeChange,
   onSubagentModelSelect,
+  onChatModeSelect,
   onEnhancePrompt,
   onQuickPromptSelect,
   getInputText,
@@ -68,6 +70,7 @@ export function ChatInputBoxFooter({
   reasoningEffort: ReasoningEffort;
   codexFastMode?: CodexFastMode;
   subagentModel?: string;
+  chatMode?: ChatMode;
   onSubmit: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
@@ -76,6 +79,7 @@ export function ChatInputBoxFooter({
   onReasoningChange?: (effort: ReasoningEffort) => void;
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
   onSubagentModelSelect?: (modelId: string) => void;
+  onChatModeSelect?: (mode: ChatMode) => void;
   onEnhancePrompt: () => void;
   onQuickPromptSelect?: (text: string) => void;
   getInputText?: () => string;
@@ -121,6 +125,7 @@ export function ChatInputBoxFooter({
         reasoningEffort={reasoningEffort}
         codexFastMode={codexFastMode}
         subagentModel={subagentModel}
+        chatMode={chatMode}
         onSubmit={onSubmit}
         onStop={onStop}
         onModeSelect={onModeSelect}
@@ -129,6 +134,7 @@ export function ChatInputBoxFooter({
         onReasoningChange={onReasoningChange}
         onCodexFastModeChange={onCodexFastModeChange}
         onSubagentModelSelect={onSubagentModelSelect}
+        onChatModeSelect={onChatModeSelect}
         onEnhancePrompt={onEnhancePrompt}
         onQuickPromptSelect={onQuickPromptSelect}
         getInputText={getInputText}

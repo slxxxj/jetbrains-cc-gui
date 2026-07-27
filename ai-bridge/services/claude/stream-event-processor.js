@@ -187,6 +187,185 @@ export function processToolResultMessages(msg) {
   }
 }
 
+/**
+ * Normalize the usage object carried by task_progress / task_notification
+ * messages ({total_tokens, tool_uses, duration_ms}) into camelCase.
+ * Returns undefined when no usable numbers are present.
+ */
+function normalizeTaskUsage(usage) {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+  const normalized = {
+    totalTokens: num(usage.total_tokens),
+    toolUses: num(usage.tool_uses),
+    durationMs: num(usage.duration_ms),
+  };
+  if (normalized.totalTokens === undefined && normalized.toolUses === undefined && normalized.durationMs === undefined) {
+    return undefined;
+  }
+  return normalized;
+}
+
+/**
+ * Build the 'task_event' payload for an SDK background-task lifecycle message,
+ * or return null when the message is not one. See processTaskLifecycleEvent for
+ * the covered shapes. Kept pure so the inter-turn path (perpetual reader) can
+ * forward the same payload over the untagged daemon-event channel instead of
+ * the request-scoped emit() channel.
+ */
+export function buildTaskLifecycleEvent(msg) {
+  if (!msg || typeof msg !== 'object') return null;
+
+  if (msg.type === 'tool_progress') {
+    return {
+      kind: 'tool_progress',
+      toolUseId: typeof msg.tool_use_id === 'string' ? msg.tool_use_id : undefined,
+      toolName: typeof msg.tool_name === 'string' ? msg.tool_name : undefined,
+      parentToolUseId: typeof msg.parent_tool_use_id === 'string' ? msg.parent_tool_use_id : null,
+      taskId: typeof msg.task_id === 'string' ? msg.task_id : undefined,
+      elapsedTimeSeconds: typeof msg.elapsed_time_seconds === 'number' ? msg.elapsed_time_seconds : undefined,
+    };
+  }
+
+  if (msg.type !== 'system') return null;
+
+  switch (msg.subtype) {
+    case 'task_started':
+      return {
+        kind: 'started',
+        taskId: typeof msg.task_id === 'string' ? msg.task_id : undefined,
+        toolUseId: typeof msg.tool_use_id === 'string' ? msg.tool_use_id : undefined,
+        description: typeof msg.description === 'string' ? msg.description : undefined,
+        subagentType: typeof msg.subagent_type === 'string' ? msg.subagent_type : undefined,
+      };
+    case 'task_progress':
+      return {
+        kind: 'progress',
+        taskId: typeof msg.task_id === 'string' ? msg.task_id : undefined,
+        toolUseId: typeof msg.tool_use_id === 'string' ? msg.tool_use_id : undefined,
+        description: typeof msg.description === 'string' ? msg.description : undefined,
+        subagentType: typeof msg.subagent_type === 'string' ? msg.subagent_type : undefined,
+        lastToolName: typeof msg.last_tool_name === 'string' ? msg.last_tool_name : undefined,
+        summary: typeof msg.summary === 'string' ? msg.summary : undefined,
+        usage: normalizeTaskUsage(msg.usage),
+      };
+    case 'task_notification':
+      return {
+        kind: 'notification',
+        taskId: typeof msg.task_id === 'string' ? msg.task_id : undefined,
+        toolUseId: typeof msg.tool_use_id === 'string' ? msg.tool_use_id : undefined,
+        status: typeof msg.status === 'string' ? msg.status : undefined,
+        summary: typeof msg.summary === 'string' ? msg.summary : undefined,
+        usage: normalizeTaskUsage(msg.usage),
+      };
+    case 'task_updated':
+      return {
+        kind: 'updated',
+        taskId: typeof msg.task_id === 'string' ? msg.task_id : undefined,
+        patch: msg.patch && typeof msg.patch === 'object' ? msg.patch : undefined,
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Forward SDK background-task lifecycle signals as 'task_event' envelopes.
+ *
+ * Covers the async subagent (Agent/Task tool) lifecycle plus per-tool
+ * heartbeats — the data the UI needs to render Cursor-style live progress:
+ *   - system/task_started      → {kind:'started', taskId, toolUseId, description, subagentType}
+ *   - system/task_progress     → {kind:'progress', ..., lastToolName, summary, usage}
+ *   - system/task_notification → {kind:'notification', ..., status, summary, usage}
+ *   - system/task_updated      → {kind:'updated', taskId, patch}
+ *   - tool_progress (top-level) → {kind:'tool_progress', toolUseId, toolName,
+ *     parentToolUseId, taskId, elapsedTimeSeconds} — heartbeat emitted while a
+ *     long-running tool executes, main chain and subagent tools alike. This is
+ *     what lets the UI prove "still working" during an otherwise silent stretch.
+ *
+ * Returns true when the message was a task lifecycle event.
+ */
+export function processTaskLifecycleEvent(msg) {
+  const payload = buildTaskLifecycleEvent(msg);
+  if (!payload) return false;
+  emit('task_event', payload);
+  return true;
+}
+
+/**
+ * Whether an SDK message belongs to a subagent's internal conversation
+ * (assistant/user message with parent_tool_use_id set). Such messages must NOT
+ * be merged into the main assistant bubble — the UI nests them under the
+ * spawning agent card instead.
+ */
+export function isSidechainMessage(msg) {
+  if (!msg || typeof msg !== 'object') return false;
+  if (msg.type !== 'assistant' && msg.type !== 'user') return false;
+  return typeof msg.parent_tool_use_id === 'string' && msg.parent_tool_use_id.length > 0;
+}
+
+const SIDECHAIN_FIELD_MAX = 200;
+
+/**
+ * Keep only small scalar fields of a tool_use input for step-summary rendering
+ * (file_path, command, pattern, …). Each string is truncated; nested objects
+ * are dropped so the envelope stays small even for huge Write payloads.
+ */
+function pickSidechainInputSummary(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const summary = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(input)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'string') {
+      summary[key] = value.length > SIDECHAIN_FIELD_MAX ? value.slice(0, SIDECHAIN_FIELD_MAX) + '…' : value;
+      count += 1;
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      summary[key] = value;
+      count += 1;
+    }
+    if (count >= 8) break;
+  }
+  return count > 0 ? summary : undefined;
+}
+
+/**
+ * Reduce a sidechain SDK message to the lean shape the UI needs for nested
+ * step rendering:
+ *   { parentToolUseId, role, blocks: [
+ *     {type:'tool_use', id, name, input} | {type:'tool_result', tool_use_id, is_error} ] }
+ * Returns null when the message carries no renderable tool blocks.
+ */
+export function trimSidechainMessage(msg) {
+  if (!isSidechainMessage(msg)) return null;
+  const content = msg.message?.content ?? msg.content;
+  if (!Array.isArray(content)) return null;
+  const blocks = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    if (block.type === 'tool_use' && typeof block.id === 'string') {
+      blocks.push({
+        type: 'tool_use',
+        id: block.id,
+        name: typeof block.name === 'string' ? block.name : '',
+        input: pickSidechainInputSummary(block.input),
+      });
+    } else if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
+      blocks.push({
+        type: 'tool_result',
+        tool_use_id: block.tool_use_id,
+        is_error: block.is_error === true,
+      });
+    }
+  }
+  if (blocks.length === 0) return null;
+  return {
+    parentToolUseId: msg.parent_tool_use_id,
+    role: msg.type,
+    blocks,
+  };
+}
+
 export function shouldOutputMessage(msg, turnState) {
   // Always output non-assistant messages
   if (msg.type !== 'assistant') {

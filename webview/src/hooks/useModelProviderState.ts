@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { sendBridgeEvent } from '../utils/bridge';
 import { apply1MContextSuffix } from '../components/ChatInputBox/types';
-import type { PermissionMode } from '../components/ChatInputBox/types';
+import type { ChatMode, PermissionMode } from '../components/ChatInputBox/types';
 import { isSpecialProviderId } from '../types/provider';
 import {
   getProviderCapabilities,
@@ -60,6 +60,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     longContextEnabled, setLongContextEnabled,
     setClaudeSettingsAlwaysThinkingEnabled,
     selectedSubagentModel, setSelectedSubagentModel,
+    selectedChatMode, setSelectedChatMode,
   } = claude;
   const {
     selectedCodexModel, setSelectedCodexModel,
@@ -80,6 +81,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setReasoningEffort,
     setCodexFastMode,
     setSelectedSubagentModel,
+    setSelectedChatMode,
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
@@ -89,6 +91,7 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     reasoningEffort,
     codexFastMode,
     selectedSubagentModel,
+    selectedChatMode,
   });
 
   // ── Computed values ──
@@ -168,6 +171,13 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     setSelectedSubagentModel(modelId);
   }, [setSelectedSubagentModel]);
 
+  // Chat mode is Claude-only per-message state that travels inside the
+  // send_message payload as `chatMode` — no immediate bridge event (the
+  // subagentModel pattern, not the permissionMode set_mode pattern).
+  const handleChatModeSelect = useCallback((mode: ChatMode) => {
+    setSelectedChatMode(mode);
+  }, [setSelectedChatMode]);
+
   const handleToggleThinking = useCallback((enabled: boolean) => {
     const config = settings.activeProviderConfig;
     const isSpecialProvider = isSpecialProviderId(config?.id || '');
@@ -223,5 +233,6 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
     handleLongContextChange,
     handleToggleThinking,
     handleSubagentModelSelect,
+    handleChatModeSelect,
   };
 }

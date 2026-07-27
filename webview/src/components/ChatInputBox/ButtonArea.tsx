@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
-import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, QuickPromptSelect, ReasoningSelect, SubagentModelSelect } from './selectors';
+import type { ButtonAreaProps, ChatMode, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
+import { ChatModeSelect, CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, QuickPromptSelect, ReasoningSelect, SubagentModelSelect } from './selectors';
 import { STORAGE_KEYS } from '../../types/provider';
 import { readClaudeModelMapping } from '../../utils/claudeModelMapping';
 import { getProviderCapabilities, isKnownProvider } from '../../utils/providerCapabilities';
@@ -24,6 +24,7 @@ export const ButtonArea = ({
   reasoningEffort = 'high',
   codexFastMode = 'normal',
   subagentModel = '',
+  chatMode = 'agent',
   onSubmit,
   onStop,
   onModeSelect,
@@ -32,6 +33,7 @@ export const ButtonArea = ({
   onReasoningChange,
   onCodexFastModeChange,
   onSubagentModelSelect,
+  onChatModeSelect,
   onEnhancePrompt,
   onQuickPromptSelect,
   getInputText,
@@ -199,6 +201,13 @@ export const ButtonArea = ({
   }, [onSubagentModelSelect]);
 
   /**
+   * Handle chat mode selection ('agent' = default; travels in the send payload)
+   */
+  const handleChatModeSelect = useCallback((mode: ChatMode) => {
+    onChatModeSelect?.(mode);
+  }, [onChatModeSelect]);
+
+  /**
    * Handle enhance prompt button click
    */
   const handleEnhanceClick = useCallback((e: React.MouseEvent) => {
@@ -226,6 +235,7 @@ export const ButtonArea = ({
           compact
         />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
+        <ChatModeSelect value={chatMode} onChange={handleChatModeSelect} provider={currentProvider} />
         <ModelSelect value={selectedModel} onChange={handleModelSelect} models={availableModels} currentProvider={currentProvider} onAddModel={onAddModel} longContextEnabled={longContextEnabled} onLongContextChange={onLongContextChange} onRefreshModels={refreshAvailableModels} />
         <SubagentModelSelect value={subagentModel} onChange={handleSubagentModelSelect} models={availableModels} currentProvider={currentProvider} />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />

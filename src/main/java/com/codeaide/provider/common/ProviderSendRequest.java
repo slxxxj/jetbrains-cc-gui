@@ -57,4 +57,11 @@ public class ProviderSendRequest {
      * null/blank = no override (follow the main model / CLI default).
      */
     public String subagentModel;
+
+    /**
+     * Claude-only: chat mode selected in the webview (agent/ask/plan/debug/
+     * multitask). null/blank = default mode. Values are not validated here;
+     * normalization happens in ai-bridge.
+     */
+    public String chatMode;
 }

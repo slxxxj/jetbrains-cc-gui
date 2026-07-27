@@ -92,6 +92,7 @@ export interface ChatScreenProps {
   reasoningEffort: ProviderState['reasoningEffort'];
   codexFastMode: ProviderState['codexFastMode'];
   selectedSubagentModel: ProviderState['selectedSubagentModel'];
+  selectedChatMode: ProviderState['selectedChatMode'];
   streamingEnabledSetting: ProviderState['streamingEnabledSetting'];
   sendShortcut: ProviderState['sendShortcut'];
   autoOpenFileEnabled: ProviderState['autoOpenFileEnabled'];
@@ -107,6 +108,7 @@ export interface ChatScreenProps {
   onReasoningChange: ProviderState['handleReasoningChange'];
   onCodexFastModeChange: ProviderState['handleCodexFastModeChange'];
   onSubagentModelSelect: ProviderState['handleSubagentModelSelect'];
+  onChatModeSelect: ProviderState['handleChatModeSelect'];
   onToggleThinking: ProviderState['handleToggleThinking'];
   onStreamingEnabledChange: ProviderState['handleStreamingEnabledChange'];
   onAutoOpenFileEnabledChange: ProviderState['handleAutoOpenFileEnabledChange'];
@@ -143,9 +145,10 @@ export const ChatScreen = ({
   reasoningEffort, codexFastMode, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
   longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens,
   selectedSubagentModel,
+  selectedChatMode,
   onModeSelect, onModelSelect, onAgentSelect, onReasoningChange, onCodexFastModeChange, onToggleThinking,
   onStreamingEnabledChange,
-  onAutoOpenFileEnabledChange, onLongContextChange, onSubagentModelSelect,
+  onAutoOpenFileEnabledChange, onLongContextChange, onSubagentModelSelect, onChatModeSelect,
   messageQueue, onRemoveFromQueue,
 }: ChatScreenProps) => {
   const { t } = useTranslation();
@@ -318,6 +321,8 @@ export const ChatScreen = ({
           onCodexFastModeChange={onCodexFastModeChange}
           subagentModel={selectedSubagentModel}
           onSubagentModelSelect={onSubagentModelSelect}
+          chatMode={selectedChatMode}
+          onChatModeSelect={onChatModeSelect}
           onToggleThinking={onToggleThinking}
           streamingEnabled={streamingEnabledSetting}
           onStreamingEnabledChange={onStreamingEnabledChange}

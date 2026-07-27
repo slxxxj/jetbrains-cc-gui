@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { TOOL_PROGRESS_STALE_MS, type ToolProgressInfo } from '../utils/taskActivityStore';
 
 interface WaitingIndicatorProps {
   size?: number;
@@ -11,9 +12,17 @@ interface WaitingIndicatorProps {
    * response" label while set; the spinner and elapsed time stay.
    */
   hint?: string;
+  /**
+   * Latest tool_progress heartbeat from the SDK (a tool currently executing,
+   * main chain or subagent). Rendered as "Running <tool> · Ns" so a long tool
+   * execution visibly proves the session is alive instead of looking frozen.
+   * Stale heartbeats (older than TOOL_PROGRESS_STALE_MS) are ignored — the 1s
+   * elapsed timer re-renders this component and re-checks freshness every tick.
+   */
+  toolProgress?: ToolProgressInfo | null;
 }
 
-export const WaitingIndicator = ({ size = 18, startTime, hint }: WaitingIndicatorProps) => {
+export const WaitingIndicator = ({ size = 18, startTime, hint, toolProgress }: WaitingIndicatorProps) => {
   const { t } = useTranslation();
   const [dotCount, setDotCount] = useState(1);
   const [elapsedSeconds, setElapsedSeconds] = useState(() => {
@@ -62,12 +71,28 @@ export const WaitingIndicator = ({ size = 18, startTime, hint }: WaitingIndicato
     return `${t('chat.minutesAndSeconds', { minutes, seconds: remainingSeconds })}`;
   };
 
+  // Live "a tool is executing" line. The heartbeat carries the SDK-reported
+  // elapsed seconds at event time; local ticks extrapolate between heartbeats.
+  // While fresh, the seconds suffix tracks the running tool instead of the
+  // whole turn — that is the number the user watches during a long execution.
+  const now = Date.now();
+  const freshProgress = toolProgress && now - toolProgress.at < TOOL_PROGRESS_STALE_MS ? toolProgress : null;
+  const toolElapsedSeconds = freshProgress
+    ? Math.max(
+        Math.floor((freshProgress.elapsedTimeSeconds ?? 0) + (now - freshProgress.at) / 1000),
+        0,
+      )
+    : 0;
+  const label = hint
+    ?? (freshProgress?.toolName ? t('chat.runningTool', { toolName: freshProgress.toolName }) : undefined);
+  const suffixSeconds = freshProgress ? toolElapsedSeconds : elapsedSeconds;
+
   return (
     <div className="waiting-indicator">
       <span className="waiting-spinner" style={spinnerStyle} />
       <span className="waiting-text">
-	        {hint ?? t('chat.generatingResponse')}<span className="waiting-dots">{dots}</span>
-	        <span className="waiting-seconds">（{t('chat.elapsedTime', { time: formatElapsedTime(elapsedSeconds) })}）</span>
+	        {label ?? t('chat.generatingResponse')}<span className="waiting-dots">{dots}</span>
+	        <span className="waiting-seconds">（{t('chat.elapsedTime', { time: formatElapsedTime(suffixSeconds) })}）</span>
       </span>
     </div>
   );

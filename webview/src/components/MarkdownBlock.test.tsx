@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MarkdownBlock from './MarkdownBlock';
 import {
@@ -11,6 +11,14 @@ const bridgeMocks = vi.hoisted(() => ({
   openClass: vi.fn(),
   openFile: vi.fn(),
   resolveFilePathWithCallback: vi.fn(),
+}));
+
+const mermaidLoaderMocks = vi.hoisted(() => ({
+  loadMermaid: vi.fn(),
+}));
+
+vi.mock('../utils/mermaidLoader', () => ({
+  loadMermaid: mermaidLoaderMocks.loadMermaid,
 }));
 
 vi.mock('../utils/bridge', () => ({
@@ -533,5 +541,49 @@ describe('MarkdownBlock linkify integration', () => {
     const finalCodes = document.querySelectorAll('code');
     expect(finalCodes[0].textContent).toBe('Array<T>');
     expect(finalCodes[1].textContent).toBe('Map<string, number>');
+  });
+});
+
+describe('MarkdownBlock lazy mermaid rendering', () => {
+  beforeEach(() => {
+    mermaidLoaderMocks.loadMermaid.mockReset();
+    document.querySelectorAll('.file-link-tooltip').forEach((element) => element.remove());
+  });
+
+  it('lazy-loads mermaid and replaces the code block with the rendered svg', async () => {
+    const renderMock = vi.fn(async () => ({ svg: '<svg data-test="mermaid-svg"></svg>' }));
+    mermaidLoaderMocks.loadMermaid.mockResolvedValue({ render: renderMock });
+
+    render(
+      <MarkdownBlock content={['```mermaid', 'graph TD;', 'A-->B;', '```'].join('\n')} />,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector('.mermaid-diagram')).toBeTruthy();
+    });
+
+    expect(mermaidLoaderMocks.loadMermaid).toHaveBeenCalled();
+    expect(renderMock).toHaveBeenCalled();
+    expect(document.querySelector('.mermaid-diagram svg[data-test="mermaid-svg"]')).toBeTruthy();
+    expect(document.querySelector('.mermaid-loading')).toBeNull();
+  });
+
+  it('keeps the plain code block when the mermaid chunk fails to load', async () => {
+    mermaidLoaderMocks.loadMermaid.mockRejectedValue(new Error('chunk load failed'));
+
+    render(
+      <MarkdownBlock content={['```mermaid', 'graph TD;', 'A-->B;', '```'].join('\n')} />,
+    );
+
+    await waitFor(() => {
+      expect(mermaidLoaderMocks.loadMermaid).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(document.querySelector('.mermaid-loading')).toBeNull();
+    });
+
+    // No diagram, no crash: the source stays visible as a normal code block.
+    expect(document.querySelector('.mermaid-diagram')).toBeNull();
+    expect(document.querySelector('pre code')?.textContent).toContain('graph TD;');
   });
 });

@@ -151,6 +151,23 @@ public class ClaudeSession {
         default void onCompactStatus(boolean compacting) {
         }
 
+        /**
+         * Called when a background-task lifecycle event arrives (async subagent
+         * started / progress / notification, or a tool_progress heartbeat).
+         * The payload is the raw task_event JSON string; the frontend keeps the
+         * subagent card and the waiting indicator live with it.
+         */
+        default void onTaskEvent(String json) {
+        }
+
+        /**
+         * Called when a subagent-internal message (sidechain tool_use/tool_result)
+         * arrives. The payload is the trimmed subagent_message JSON string; the
+         * frontend nests the steps under the spawning agent card.
+         */
+        default void onSubagentMessage(String json) {
+        }
+
         default void onUserMessageUuidPatched(String content, String uuid) {
         }
     }
@@ -409,13 +426,16 @@ public class ClaudeSession {
             String requestedReasoningEffort,
             String requestedCodexFastMode
     ) {
-        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedReasoningEffort, requestedCodexFastMode);
+        return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedReasoningEffort,
+                requestedCodexFastMode, null, null);
     }
 
     /**
      * Send a message with a specific agent prompt, file tags, requested permission mode,
-     * requested reasoning effort, Codex fast mode, and a Claude subagent model override.
+     * requested reasoning effort, Codex fast mode, a Claude subagent model override,
+     * and a Claude chat mode.
      * The subagent model is Claude-only; null means "follow the main model / CLI default".
+     * The chat mode is Claude-only; null means "default mode".
      */
     public CompletableFuture<Void> send(
             String input,
@@ -424,10 +444,11 @@ public class ClaudeSession {
             String requestedPermissionMode,
             String requestedReasoningEffort,
             String requestedCodexFastMode,
-            String requestedSubagentModel
+            String requestedSubagentModel,
+            String requestedChatMode
     ) {
         return send(input, null, agentPrompt, fileTagPaths, requestedPermissionMode, requestedReasoningEffort,
-                requestedCodexFastMode, requestedSubagentModel);
+                requestedCodexFastMode, requestedSubagentModel, requestedChatMode);
     }
 
     /**
@@ -497,16 +518,18 @@ public class ClaudeSession {
             String requestedCodexFastMode
     ) {
         return send(input, attachments, agentPrompt, fileTagPaths, requestedPermissionMode, requestedReasoningEffort,
-                requestedCodexFastMode, null);
+                requestedCodexFastMode, null, null);
     }
 
     /**
      * Send a message with attachments, agent prompt, file tags, requested permission mode,
-     * requested reasoning effort, Codex fast mode, and a Claude subagent model override.
+     * requested reasoning effort, Codex fast mode, a Claude subagent model override,
+     * and a Claude chat mode.
      * The effective mode is resolved with priority:
      * Priority: requestedPermissionMode > sessionMode > default.
      * The Codex fast mode maps to the official service tier used by Codex CLI /fast.
      * The subagent model is Claude-only; null means "follow the main model / CLI default".
+     * The chat mode is Claude-only; null means "default mode".
      */
     public CompletableFuture<Void> send(
             String input,
@@ -516,7 +539,8 @@ public class ClaudeSession {
             String requestedPermissionMode,
             String requestedReasoningEffort,
             String requestedCodexFastMode,
-            String requestedSubagentModel
+            String requestedSubagentModel,
+            String requestedChatMode
     ) {
         String normalizedInput = (input != null) ? input.trim() : "";
         Message userMessage = contextService.buildUserMessage(normalizedInput, attachments);
@@ -528,6 +552,7 @@ public class ClaudeSession {
         final String finalRequestedReasoningEffort = requestedReasoningEffort;
         final String finalRequestedCodexFastMode = requestedCodexFastMode;
         final String finalRequestedSubagentModel = requestedSubagentModel;
+        final String finalRequestedChatMode = requestedChatMode;
 
         return launchClaude().thenCompose(chId -> {
             sendService.prepareContextCollector(contextCollector);
@@ -543,7 +568,8 @@ public class ClaudeSession {
                             finalRequestedPermissionMode,
                             finalRequestedReasoningEffort,
                             finalRequestedCodexFastMode,
-                            finalRequestedSubagentModel
+                            finalRequestedSubagentModel,
+                            finalRequestedChatMode
                     )
             ).thenCompose(v -> syncUserMessageUuidsAfterSend());
         }).exceptionally(ex -> {

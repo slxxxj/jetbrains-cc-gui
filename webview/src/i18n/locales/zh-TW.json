@@ -122,7 +122,8 @@
       "userContext": "補充說明：「{{context}}」",
       "expand": "展開摘要",
       "collapse": "摺疊摘要"
-    }
+    },
+    "runningTool": "正在執行 {{toolName}}"
   },
   "settings": {
     "title": "設定",
@@ -1535,6 +1536,33 @@
       "description": "Hands-off mode. Codex executes edits and shell commands immediately."
     }
   },
+  "chatModes": {
+    "agent": {
+      "label": "智能體",
+      "tooltip": "一般智能體模式",
+      "description": "完整的智能體行為，可使用工具"
+    },
+    "ask": {
+      "label": "提問",
+      "tooltip": "只提問，不做變更",
+      "description": "僅回答問題，不修改檔案"
+    },
+    "plan": {
+      "label": "計畫",
+      "tooltip": "先規劃再執行",
+      "description": "先產生計畫供核准，再執行"
+    },
+    "debug": {
+      "label": "除錯",
+      "tooltip": "專注於除錯的模式",
+      "description": "調查並診斷問題"
+    },
+    "multitask": {
+      "label": "多工",
+      "tooltip": "平行執行多個任務",
+      "description": "將工作拆分為平行子任務"
+    }
+  },
   "providers": {
     "claude": {
       "label": "Claude Code"
@@ -1734,6 +1762,18 @@
           "step0": "Switch to the official npm registry (the Taobao mirror may not have the latest version); the plugin will then retry automatically — check the logs if it still fails:"
         }
       }
+    }
+  },
+  "subagent": {
+    "live": {
+      "starting": "子代理啟動中",
+      "runningTool": "正在執行 {{toolName}}",
+      "toolCount_one": "{{count}} 次工具調用",
+      "toolCount_other": "{{count}} 次工具調用",
+      "statusCompleted": "已完成",
+      "statusError": "失敗",
+      "statusStopped": "已停止",
+      "stepsTitle": "執行步驟"
     }
   }
 }

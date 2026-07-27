@@ -85,6 +85,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onCodexFastModeChange,
       subagentModel = '',
       onSubagentModelSelect,
+      chatMode = 'agent',
+      onChatModeSelect,
       activeFile,
       selectedLines,
       onClearContext,
@@ -719,6 +721,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           reasoningEffort={reasoningEffort}
           codexFastMode={codexFastMode}
           subagentModel={subagentModel}
+          chatMode={chatMode}
           onSubmit={handleSubmit}
           onStop={onStop}
           onModeSelect={handleModeSelect}
@@ -727,6 +730,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onReasoningChange={onReasoningChange}
           onCodexFastModeChange={onCodexFastModeChange}
           onSubagentModelSelect={onSubagentModelSelect}
+          onChatModeSelect={onChatModeSelect}
           onEnhancePrompt={handleEnhancePrompt}
           onQuickPromptSelect={handleQuickPromptSelect}
           getInputText={getTextContent}

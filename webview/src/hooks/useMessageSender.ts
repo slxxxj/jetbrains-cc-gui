@@ -5,12 +5,13 @@ import type { ClaudeContentBlock, ClaudeMessage } from '../types';
 import {
   apply1MContextSuffix,
 } from '../components/ChatInputBox/types';
-import type { Attachment, ChatInputBoxHandle, PermissionMode, ReasoningEffort, SelectedAgent, CodexFastMode } from '../components/ChatInputBox/types';
+import type { Attachment, ChatInputBoxHandle, ChatMode, PermissionMode, ReasoningEffort, SelectedAgent, CodexFastMode } from '../components/ChatInputBox/types';
 import type { ViewMode } from './useModelProviderState';
 import {
   getProviderCapabilities,
   providerDisplayName,
   sanitizePermissionMode,
+  supportsChatMode,
   supportsPlanMode,
   supportsReasoningEffort,
   supportsSubagentModel,
@@ -45,6 +46,8 @@ export interface UseMessageSenderOptions {
   selectedAgent: SelectedAgent | null;
   /** Claude-only subagent model override; ''/undefined = follow the main model. */
   selectedSubagentModel?: string;
+  /** Claude-only per-message chat mode; 'agent'/undefined = default (payload omits chatMode). */
+  selectedChatMode?: ChatMode;
   sdkStatusLoaded: boolean;
   currentSdkInstalled: boolean;
   sentAttachmentsRef: RefObject<Map<string, Array<{ fileName: string; mediaType: string }>>>;
@@ -79,6 +82,7 @@ export function useMessageSender({
   codexFastMode,
   selectedAgent,
   selectedSubagentModel,
+  selectedChatMode,
   sdkStatusLoaded,
   currentSdkInstalled,
   sentAttachmentsRef,
@@ -277,6 +281,13 @@ export function useMessageSender({
       ? { subagentModel: trimmedSubagentModel }
       : {};
 
+    // Chat mode is Claude-only and only sent when a non-default (≠ 'agent')
+    // mode is selected; otherwise the key stays absent. Codex payloads never
+    // carry it.
+    const chatModePayload = supportsChatMode(currentProvider) && selectedChatMode && selectedChatMode !== 'agent'
+      ? { chatMode: selectedChatMode }
+      : {};
+
     if (hasAttachments) {
       try {
         const payload = JSON.stringify({
@@ -291,6 +302,7 @@ export function useMessageSender({
           permissionMode: effectivePermissionMode,
           ...reasoningEffortPayload,
           ...subagentModelPayload,
+          ...chatModePayload,
           codexFastMode,
         });
         sendBridgeEvent('send_message_with_attachments', payload);
@@ -303,6 +315,7 @@ export function useMessageSender({
           permissionMode: effectivePermissionMode,
           ...reasoningEffortPayload,
           ...subagentModelPayload,
+          ...chatModePayload,
           codexFastMode,
         });
         sendBridgeEvent('send_message', fallbackPayload);
@@ -315,11 +328,12 @@ export function useMessageSender({
         permissionMode: effectivePermissionMode,
         ...reasoningEffortPayload,
         ...subagentModelPayload,
+        ...chatModePayload,
         codexFastMode,
       });
       sendBridgeEvent('send_message', payload);
     }
-  }, [codexFastMode, currentProvider, selectedModel, selectedSubagentModel, reasoningEffort]);
+  }, [codexFastMode, currentProvider, selectedModel, selectedSubagentModel, selectedChatMode, reasoningEffort]);
 
   /**
    * Execute message sending (from queue or directly)

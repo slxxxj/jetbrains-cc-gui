@@ -35,6 +35,7 @@ import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import 'highlight.js/styles/github-dark.css';
 import { markedHighlight } from 'marked-highlight';
+import { loadMermaid } from '../utils/mermaidLoader';
 
 const SAFE_HREF_PROTOCOL_REGEX = /^(?:https?|mailto):/i;
 const FILE_URI_SCHEME_REGEX = /^file:/i;
@@ -138,21 +139,7 @@ hljs.registerAliases(['sh', 'zsh'], { languageName: 'bash' });
 hljs.registerAliases(['html', 'xhtml', 'svg'], { languageName: 'xml' });
 hljs.registerAliases(['yml'], { languageName: 'yaml' });
 
-// Lazy-loaded mermaid singleton (deferred until first diagram is encountered)
-let mermaidInstance: typeof import('mermaid').default | null = null;
-async function getMermaid() {
-  if (!mermaidInstance) {
-    const mod = await import('mermaid');
-    mermaidInstance = mod.default;
-    mermaidInstance.initialize({
-      startOnLoad: false,
-      theme: 'dark',
-      securityLevel: 'strict',
-      fontFamily: 'inherit',
-    });
-  }
-  return mermaidInstance;
-}
+// Mermaid is lazy-loaded via loadMermaid (deferred until first diagram is encountered)
 
 // Configure marked to use syntax highlighting
 marked.use(
@@ -601,7 +588,7 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
       }
 
       try {
-        const mmd = await getMermaid();
+        const mmd = await loadMermaid();
         const id = `mermaid-${++mermaidIdCounter}`;
         const { svg } = await mmd.render(id, code);
 

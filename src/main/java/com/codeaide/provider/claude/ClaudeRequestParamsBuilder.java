@@ -34,7 +34,8 @@ class ClaudeRequestParamsBuilder {
             Boolean streaming,
             Boolean disableThinking,
             String reasoningEffort,
-            String subagentModel
+            String subagentModel,
+            String chatMode
     ) {
         JsonObject params = new JsonObject();
         params.addProperty("message", message);
@@ -66,6 +67,9 @@ class ClaudeRequestParamsBuilder {
         }
         if (subagentModel != null && !subagentModel.trim().isEmpty()) {
             params.addProperty("subagentModel", subagentModel);
+        }
+        if (chatMode != null && !chatMode.trim().isEmpty()) {
+            params.addProperty("chatMode", chatMode);
         }
 
         return params;

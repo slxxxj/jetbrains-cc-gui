@@ -52,7 +52,7 @@ export async function handleClaudeCommand(command, args, stdinData, context) {
       }
       if (stdinData && stdinData.message !== undefined) {
         // Include streaming and disableThinking when destructuring
-        const { message, sessionId, cwd, permissionMode, model, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort, subagentModel } = stdinData;
+        const { message, sessionId, cwd, permissionMode, model, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort, subagentModel, chatMode } = stdinData;
         await claudeSendMessage(
           message,
           sessionId || '',
@@ -64,7 +64,8 @@ export async function handleClaudeCommand(command, args, stdinData, context) {
           streaming,  // Pass streaming parameter
           disableThinking || false,  // Pass disableThinking parameter
           reasoningEffort || null,  // Pass reasoning effort level
-          subagentModel || null  // Pass subagent model override
+          subagentModel || null,  // Pass subagent model override
+          chatMode || null  // Pass per-message chat mode
         );
       } else {
         await claudeSendMessage(args[0], args[1], args[2], args[3], args[4]);
@@ -79,14 +80,15 @@ export async function handleClaudeCommand(command, args, stdinData, context) {
       }
       if (stdinData && stdinData.message !== undefined) {
         // Include streaming when destructuring
-        const { message, sessionId, cwd, permissionMode, model, attachments, openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel } = stdinData;
+        const { message, sessionId, cwd, permissionMode, model, attachments, openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel, chatMode } = stdinData;
         await claudeSendMessageWithAttachments(
           message,
           sessionId || '',
           cwd || '',
           permissionMode || '',
           model || '',
-          attachments ? { attachments, openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel } : { openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel }
+          attachments ? { attachments, openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel } : { openedFiles, agentPrompt, streaming, reasoningEffort, subagentModel },
+          chatMode || null  // Pass per-message chat mode
         );
       } else {
         await claudeSendMessageWithAttachments(args[0], args[1], args[2], args[3], args[4], stdinData);

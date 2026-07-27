@@ -1,4 +1,5 @@
 export { ModeSelect } from './ModeSelect';
+export { ChatModeSelect } from './ChatModeSelect';
 export { ModelSelect } from './ModelSelect';
 export { ProviderSelect } from './ProviderSelect';
 export { RuntimeProviderSelect } from './RuntimeProviderSelect';

@@ -169,6 +169,24 @@ public class CallbackHandler {
     }
 
     /**
+     * Notify of a background-task lifecycle event (raw task_event JSON).
+     */
+    public void notifyTaskEvent(String json) {
+        if (callback != null) {
+            callback.onTaskEvent(json);
+        }
+    }
+
+    /**
+     * Notify of a subagent-internal message (trimmed subagent_message JSON).
+     */
+    public void notifySubagentMessage(String json) {
+        if (callback != null) {
+            callback.onSubagentMessage(json);
+        }
+    }
+
+    /**
      * Notify of a usage update.
      */
     public void notifyUsageUpdate(int usedTokens, int maxTokens) {

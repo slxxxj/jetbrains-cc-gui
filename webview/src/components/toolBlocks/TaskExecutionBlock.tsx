@@ -4,7 +4,9 @@ import type { ToolInput, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
 import { sendBridgeEvent } from '../../utils/bridge';
 import { useSubagentHistoryGetter, useSessionId, useGetToolResultRaw, type GetToolResultRawFn } from '../../contexts/SubagentContext';
+import { useSubagentActivity, useSubagentSteps, SUBAGENT_ACTIVITY_STALE_MS } from '../../utils/taskActivityStore';
 import SubagentProcessDetails from '../StatusPanel/SubagentProcessDetails';
+import { SubagentLiveLine, SubagentResultSummary, SubagentSteps } from './SubagentLiveSteps';
 
 const MONO_FONT_STYLE: React.CSSProperties = {
   fontFamily: "var(--codeaide-code-font-family, var(--idea-editor-font-family, 'JetBrains Mono', 'Consolas', monospace))",
@@ -157,10 +159,23 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
   const modelSummary = [spawnMeta.model, spawnMeta.reasoningEffort].filter(Boolean).join(' ');
   const shortAgentId = shortenAgentId(agentId);
 
-  // Determine status based on result
-  const isCompleted = result !== undefined && result !== null;
-  const isError = isCompleted && result?.is_error === true;
+  // Determine status based on result. Caveat: for async subagent launches the
+  // tool_result arrives immediately ("async launched" metadata) while the agent
+  // is still running — a live 'running' activity must win over the early result,
+  // otherwise the card shows a green dot for work that has not finished.
+  const activity = useSubagentActivity(toolId);
+  const activityStale = activity?.status === 'running'
+    && Date.now() - activity.updatedAt > SUBAGENT_ACTIVITY_STALE_MS;
+  const activityRunning = activity?.status === 'running' && !activityStale;
+  const activityTerminal = activity != null && !activityRunning;
+  const isCompleted = (result !== undefined && result !== null && !activityRunning) || activityTerminal;
+  const isError = isCompleted
+    && (result?.is_error === true || activity?.status === 'error' || activity?.status === 'stopped' || activityStale === true);
   const history = (toolId ? getSubagentHistory(toolId) : undefined) ?? (agentId ? getSubagentHistory(agentId) : undefined);
+  // Live sidechain steps take precedence over the disk-history view: while
+  // steps stream in, SubagentProcessDetails would only show a loading spinner.
+  const liveSteps = useSubagentSteps(toolId);
+  const hasLiveSteps = (liveSteps?.length ?? 0) > 0;
 
   useEffect(() => {
     if (!expanded || !isAgentTool || !currentSessionId || !toolId || history) return;
@@ -231,9 +246,18 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
         </div>
       </div>
 
+      {/* Live progress line from the task_event stream — visible without
+          expanding, keeps the card honest while an async subagent runs. */}
+      <SubagentLiveLine toolId={toolId} />
+
       {expanded && (
         <div className="task-details">
           <div className="task-content-wrapper">
+            {/* Live sidechain steps + async result summary take precedence;
+                SubagentProcessDetails (disk history) complements below. */}
+            <SubagentSteps toolId={toolId} />
+            <SubagentResultSummary toolId={toolId} />
+
             {spawnMeta.nickname && (
               <div className="task-field">
                 <div className="task-field-label">nickname</div>
@@ -262,13 +286,13 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
               </div>
             )}
 
-            {isAgentTool && (
+            {isAgentTool && (!hasLiveSteps || isCompleted) && (
               <SubagentProcessDetails
                 agentId={agentId}
                 totalDurationMs={agentToolMeta.totalDurationMs}
                 totalTokens={agentToolMeta.totalTokens}
                 totalToolUseCount={agentToolMeta.totalToolUseCount}
-                resultText={extractResultText(result)}
+                resultText={activity?.summary ?? extractResultText(result)}
                 history={history}
                 canLoad={Boolean(currentSessionId)}
               />

@@ -125,6 +125,7 @@ public class SessionHandler extends BaseMessageHandler {
         String requestedReasoningEffort = null;
         String requestedCodexFastMode = null;
         String requestedSubagentModel = null;
+        String requestedChatMode = null;
         try {
             Gson gson = new Gson();
             JsonObject payload = gson.fromJson(content, JsonObject.class);
@@ -174,6 +175,7 @@ public class SessionHandler extends BaseMessageHandler {
             }
 
             requestedSubagentModel = extractSubagentModel(payload);
+            requestedChatMode = extractChatMode(payload);
         } catch (Exception e) {
             // If parsing fails, treat content as plain text (backward compatibility)
             LOG.debug("[SessionHandler] Message is plain text, not JSON: " + e.getMessage());
@@ -187,6 +189,7 @@ public class SessionHandler extends BaseMessageHandler {
         final String finalRequestedReasoningEffort = requestedReasoningEffort;
         final String finalRequestedCodexFastMode = requestedCodexFastMode;
         final String finalRequestedSubagentModel = requestedSubagentModel;
+        final String finalRequestedChatMode = requestedChatMode;
 
         CompletableFuture.runAsync(() -> {
             String currentWorkingDir = determineWorkingDirectory();
@@ -206,7 +209,7 @@ public class SessionHandler extends BaseMessageHandler {
             // [FIX] Pass agent prompt and file tags directly to session
             context.getSession().send(finalPrompt, finalAgentPrompt, finalFileTagPaths,
                             finalRequestedPermissionMode, finalRequestedReasoningEffort, finalRequestedCodexFastMode,
-                            finalRequestedSubagentModel)
+                            finalRequestedSubagentModel, finalRequestedChatMode)
                 .thenRun(() -> {
                     // Claude now triggers success on actual stream_end callback.
                     // Codex has no stream_end event, keep success trigger at completion.
@@ -267,6 +270,7 @@ public class SessionHandler extends BaseMessageHandler {
             String requestedReasoningEffort = null;
             String requestedCodexFastMode = null;
             String requestedSubagentModel = null;
+            String requestedChatMode = null;
             if (payload != null && payload.has("agent") && !payload.get("agent").isJsonNull()) {
                 JsonObject agent = payload.getAsJsonObject("agent");
                 if (agent.has("prompt") && !agent.get("prompt").isJsonNull()) {
@@ -308,9 +312,10 @@ public class SessionHandler extends BaseMessageHandler {
             }
 
             requestedSubagentModel = extractSubagentModel(payload);
+            requestedChatMode = extractChatMode(payload);
 
             sendMessageWithAttachments(text, atts, agentPrompt, fileTagPaths, requestedPermissionMode,
-                    requestedReasoningEffort, requestedCodexFastMode, requestedSubagentModel);
+                    requestedReasoningEffort, requestedCodexFastMode, requestedSubagentModel, requestedChatMode);
         } catch (Exception e) {
             LOG.error("[SessionHandler] 解析附件负载失败: " + e.getMessage(), e);
             handleSendMessage(content);
@@ -329,7 +334,8 @@ public class SessionHandler extends BaseMessageHandler {
         String requestedPermissionMode,
         String requestedReasoningEffort,
         String requestedCodexFastMode,
-        String requestedSubagentModel
+        String requestedSubagentModel,
+        String requestedChatMode
     ) {
         // Version check (consistent with handleSendMessage)
         String nodeVersion = this.resolveNodeVersion();
@@ -354,6 +360,7 @@ public class SessionHandler extends BaseMessageHandler {
         final String finalRequestedReasoningEffort = requestedReasoningEffort;
         final String finalRequestedCodexFastMode = requestedCodexFastMode;
         final String finalRequestedSubagentModel = requestedSubagentModel;
+        final String finalRequestedChatMode = requestedChatMode;
 
         CompletableFuture.runAsync(() -> {
             String currentWorkingDir = determineWorkingDirectory();
@@ -372,7 +379,7 @@ public class SessionHandler extends BaseMessageHandler {
             // [FIX] Pass agent prompt and file tags directly to session
             context.getSession().send(prompt, attachments, finalAgentPrompt, finalFileTagPaths,
                             finalRequestedPermissionMode, finalRequestedReasoningEffort, finalRequestedCodexFastMode,
-                            finalRequestedSubagentModel)
+                            finalRequestedSubagentModel, finalRequestedChatMode)
                 .thenRun(() -> {
                     // Claude now triggers success on actual stream_end callback.
                     // Codex has no stream_end event, keep success trigger at completion.
@@ -472,6 +479,13 @@ public class SessionHandler extends BaseMessageHandler {
             return null;
         }
         return payload.get("subagentModel").getAsString();
+    }
+
+    private String extractChatMode(JsonObject payload) {
+        if (payload == null || !payload.has("chatMode") || payload.get("chatMode").isJsonNull()) {
+            return null;
+        }
+        return payload.get("chatMode").getAsString();
     }
 
     /**

@@ -155,6 +155,7 @@ const App = () => {
     reasoningEffort, codexFastMode, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
     longContextEnabled,
     selectedSubagentModel,
+    selectedChatMode,
     usagePercentage, usageUsedTokens, usageMaxTokens,
     setPermissionMode,
     setClaudePermissionMode, setCodexPermissionMode,
@@ -170,6 +171,7 @@ const App = () => {
     handleStreamingEnabledChange, handleSendShortcutChange,
     handleAutoOpenFileEnabledChange, handleLongContextChange,
     handleSubagentModelSelect,
+    handleChatModeSelect,
   } = useModelProviderState({ addToast, t });
 
   // ── Global drag event interception ──
@@ -333,6 +335,7 @@ const App = () => {
     t, addToast,
     currentProvider, selectedModel, permissionMode, reasoningEffort, selectedAgent, codexFastMode,
     selectedSubagentModel,
+    selectedChatMode,
     sdkStatusLoaded, currentSdkInstalled,
     sentAttachmentsRef, chatInputRef, messagesContainerRef,
     isUserAtBottomRef, userPausedRef, isStreamingRef,
@@ -524,6 +527,7 @@ const App = () => {
           reasoningEffort={reasoningEffort}
           codexFastMode={codexFastMode}
           selectedSubagentModel={selectedSubagentModel}
+          selectedChatMode={selectedChatMode}
           streamingEnabledSetting={streamingEnabledSetting}
           sendShortcut={sendShortcut}
           autoOpenFileEnabled={autoOpenFileEnabled}
@@ -537,6 +541,7 @@ const App = () => {
           onReasoningChange={handleReasoningChange}
           onCodexFastModeChange={handleCodexFastModeChange}
           onSubagentModelSelect={handleSubagentModelSelect}
+          onChatModeSelect={handleChatModeSelect}
           onToggleThinking={handleToggleThinking}
           onStreamingEnabledChange={handleStreamingEnabledChange}
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}

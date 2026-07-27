@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { sendBridgeEvent } from '../../utils/bridge';
 import {
+  isValidChatMode,
   isValidPermissionMode,
   apply1MContextSuffix,
 } from '../../components/ChatInputBox/types';
-import type { CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
+import type { ChatMode, CodexFastMode, PermissionMode, ReasoningEffort } from '../../components/ChatInputBox/types';
 import {
   getAvailableModels,
   getProviderCapabilities,
@@ -35,6 +36,7 @@ export interface UseModelStatePersistenceOptions {
   setReasoningEffort: (value: ReasoningEffort) => void;
   setCodexFastMode: (value: CodexFastMode) => void;
   setSelectedSubagentModel: (value: string) => void;
+  setSelectedChatMode: (value: ChatMode) => void;
   // Cross-slice save deps (re-saves on any change)
   currentProvider: string;
   selectedClaudeModel: string;
@@ -45,6 +47,7 @@ export interface UseModelStatePersistenceOptions {
   reasoningEffort: ReasoningEffort;
   codexFastMode: CodexFastMode;
   selectedSubagentModel: string;
+  selectedChatMode: ChatMode;
 }
 
 /**
@@ -71,6 +74,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     setReasoningEffort,
     setCodexFastMode,
     setSelectedSubagentModel,
+    setSelectedChatMode,
     currentProvider,
     selectedClaudeModel,
     selectedCodexModel,
@@ -80,6 +84,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     reasoningEffort,
     codexFastMode,
     selectedSubagentModel,
+    selectedChatMode,
   } = options;
 
   // Hydrate from localStorage and sync to backend (mount only).
@@ -177,6 +182,12 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
           setSelectedSubagentModel(state.claudeSubagentModel);
         }
 
+        // Chat mode is validated against the allowlist; anything unrecognized
+        // falls back to the 'agent' default already held by the slice hook.
+        if (isValidChatMode(state.claudeChatMode)) {
+          setSelectedChatMode(state.claudeChatMode);
+        }
+
         applyRestoredModel('claude', state.claudeModel);
         applyRestoredModel('codex', state.codexModel);
       } else if (hasBackendProvider) {
@@ -234,7 +245,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     }
   }, []);
 
-  // Persist snapshot whenever any of the eight keys change.
+  // Persist snapshot whenever any of the persisted keys change.
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -247,6 +258,7 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
         reasoningEffort,
         codexFastMode,
         claudeSubagentModel: selectedSubagentModel,
+        claudeChatMode: selectedChatMode,
       }));
     } catch {
       // Failed to save model selection state — non-fatal.
@@ -261,5 +273,6 @@ export function useModelStatePersistence(options: UseModelStatePersistenceOption
     reasoningEffort,
     codexFastMode,
     selectedSubagentModel,
+    selectedChatMode,
   ]);
 }

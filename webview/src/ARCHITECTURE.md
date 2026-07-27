@@ -83,6 +83,7 @@ Handles all `window.xxx` callback registrations for Java bridge communication.
 **Responsibilities:**
 - Message callbacks (updateMessages, clearMessages, addErrorMessage)
 - Streaming callbacks (onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd, onBlockReset, onStreamingHeartbeat, onToolPreparing, onCompactStatus)
+- Live task/subagent callbacks (onTaskEvent, onSubagentMessage — handled by `utils/taskActivityStore.ts`, which renders the Cursor-style live subagent card line/steps and the WaitingIndicator "Running tool · Ns" heartbeat)
 - Status callbacks (updateStatus, showLoading, showThinkingStatus)
 - Settings callbacks (onUsageUpdate, onModeChanged, onModelChanged)
 - Dialog callbacks (showPermissionDialog, showAskUserQuestionDialog)

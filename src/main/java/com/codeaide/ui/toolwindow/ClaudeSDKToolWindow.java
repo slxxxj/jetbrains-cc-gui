@@ -267,6 +267,9 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
         com.intellij.openapi.actionSystem.AnAction renameTabAction =
                 com.intellij.openapi.actionSystem.ActionManager.getInstance()
                         .getAction("CodeAide.RenameTabAction");
+        com.intellij.openapi.actionSystem.AnAction createNewTabAction =
+                com.intellij.openapi.actionSystem.ActionManager.getInstance()
+                        .getAction("CodeAide.CreateNewTabAction");
         com.intellij.openapi.actionSystem.AnAction detachTabAction =
                 com.intellij.openapi.actionSystem.ActionManager.getInstance()
                         .getAction("CodeAide.DetachTabAction");
@@ -293,6 +296,13 @@ public class ClaudeSDKToolWindow implements ToolWindowFactory, DumbAware {
             gearActions.add(createFromTemplateAction);
         }
         toolWindow.setAdditionalGearActions(gearActions);
+
+        // Put a visible "+" on the native tab strip so multi-tab (parallel
+        // tasks) is discoverable without hunting through the webview header.
+        if (createNewTabAction != null
+                && toolWindow instanceof com.intellij.openapi.wm.ex.ToolWindowEx) {
+            ((com.intellij.openapi.wm.ex.ToolWindowEx) toolWindow).setTabActions(createNewTabAction);
+        }
 
         registerProjectCloseListener(project);
 

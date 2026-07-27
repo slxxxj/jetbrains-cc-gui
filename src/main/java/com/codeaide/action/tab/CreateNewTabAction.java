@@ -1,6 +1,7 @@
 package com.codeaide.action.tab;
 
 import com.codeaide.i18n.CodeAideBundle;
+import com.codeaide.startup.BridgePreloader;
 import com.codeaide.ui.toolwindow.ClaudeChatWindow;
 import com.codeaide.ui.toolwindow.ClaudeSDKToolWindow;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
@@ -50,6 +51,12 @@ public class CreateNewTabAction extends AnAction {
             LOG.error("[CreateNewTabAction] Tool window not found");
             return;
         }
+        if (!BridgePreloader.isBridgeReady()) {
+            // The tool window is still showing the loading panel; a chat window
+            // created now would never initialize its webview.
+            LOG.warn("[CreateNewTabAction] ai-bridge not ready, ignoring new-tab request");
+            return;
+        }
 
         // Create a new chat window instance with skipRegister=true (don't replace the main instance)
         ClaudeChatWindow newChatWindow = new ClaudeChatWindow(project, true);
@@ -76,7 +83,8 @@ public class CreateNewTabAction extends AnAction {
 
     @Override
     public void update(@NotNull AnActionEvent e) {
-        // Only enable this action when there's a valid project
-        e.getPresentation().setEnabled(e.getProject() != null);
+        // Only enable this action when there's a valid project and the bridge
+        // is ready (otherwise the new tab's webview would never load).
+        e.getPresentation().setEnabled(e.getProject() != null && BridgePreloader.isBridgeReady());
     }
 }

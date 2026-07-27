@@ -655,6 +655,39 @@ public class ClaudeChatWindow {
                             }
                         });
                     }
+                } else if ("task_event".equals(event) || "subagent_message".equals(event)) {
+                    // Async subagent lifecycle arriving between turns: the
+                    // spawning turn already ended (so no request-scoped channel
+                    // exists) but the agent is still producing progress/steps.
+                    // Forward to this window's webview when the event belongs to
+                    // its current session — same filtering as session_updated.
+                    String eventSessionId = data.has("sessionId") ? data.get("sessionId").getAsString() : null;
+                    if (eventSessionId == null) {
+                        return;
+                    }
+                    String currentSessionId = session != null ? session.getSessionId() : null;
+                    if (currentSessionId == null || !currentSessionId.equals(eventSessionId)) {
+                        return;
+                    }
+                    // Payload for the webview: everything except the daemon
+                    // envelope keys (type/event/sessionId). For subagent_message
+                    // the steps live under the nested "message" object.
+                    JsonObject payload;
+                    if ("subagent_message".equals(event) && data.has("message") && data.get("message").isJsonObject()) {
+                        payload = data.getAsJsonObject("message");
+                    } else {
+                        payload = data.deepCopy();
+                        payload.remove("type");
+                        payload.remove("event");
+                        payload.remove("sessionId");
+                    }
+                    String payloadJson = payload.toString();
+                    String callbackName = "task_event".equals(event) ? "onTaskEvent" : "onSubagentMessage";
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        if (!disposed) {
+                            callJavaScript(callbackName, JsUtils.escapeJs(payloadJson));
+                        }
+                    });
                 } else if ("session_updated".equals(event)) {
                     // Handle inter-turn session updates (background task completion)
                     String updatedSessionId = data.has("sessionId") ? data.get("sessionId").getAsString() : null;

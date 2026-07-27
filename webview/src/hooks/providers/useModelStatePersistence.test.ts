@@ -21,6 +21,7 @@ function makeOptions(overrides: Partial<UseModelStatePersistenceOptions> = {}): 
     setReasoningEffort: vi.fn(),
     setCodexFastMode: vi.fn(),
     setSelectedSubagentModel: vi.fn(),
+    setSelectedChatMode: vi.fn(),
     currentProvider: 'claude',
     selectedClaudeModel: 'claude-sonnet-4-5',
     selectedCodexModel: 'gpt-5-codex',
@@ -30,6 +31,7 @@ function makeOptions(overrides: Partial<UseModelStatePersistenceOptions> = {}): 
     reasoningEffort: 'medium',
     codexFastMode: 'normal',
     selectedSubagentModel: '',
+    selectedChatMode: 'agent',
     ...overrides,
   };
 }
@@ -120,5 +122,35 @@ describe('useModelStatePersistence — boot sync does not clobber the persisted 
 
     const saved = JSON.parse(localStorage.getItem('model-selection-state') ?? '{}');
     expect(saved.claudeSubagentModel).toBe('glm-4.7-flash');
+  });
+
+  it('hydrates a valid persisted chat mode and rejects unrecognized values', () => {
+    const setSelectedChatMode = vi.fn();
+    localStorage.setItem('model-selection-state', JSON.stringify({
+      provider: 'claude',
+      claudeChatMode: 'plan',
+    }));
+
+    renderHook(() => useModelStatePersistence(makeOptions({ setSelectedChatMode })));
+
+    expect(setSelectedChatMode).toHaveBeenCalledWith('plan');
+
+    setSelectedChatMode.mockClear();
+    localStorage.setItem('model-selection-state', JSON.stringify({
+      provider: 'claude',
+      claudeChatMode: 'not-a-mode',
+    }));
+
+    renderHook(() => useModelStatePersistence(makeOptions({ setSelectedChatMode })));
+
+    // Invalid values are ignored; the slice hook's 'agent' default stands.
+    expect(setSelectedChatMode).not.toHaveBeenCalled();
+  });
+
+  it('saves a changed chat mode selection into the snapshot', () => {
+    renderHook(() => useModelStatePersistence(makeOptions({ selectedChatMode: 'debug' })));
+
+    const saved = JSON.parse(localStorage.getItem('model-selection-state') ?? '{}');
+    expect(saved.claudeChatMode).toBe('debug');
   });
 });

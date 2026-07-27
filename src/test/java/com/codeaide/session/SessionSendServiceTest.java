@@ -56,6 +56,17 @@ public class SessionSendServiceTest {
     }
 
     @Test
+    public void normalizeRequestedChatModeTrimsAndRejectsBlank() {
+        assertNull(SessionSendService.normalizeRequestedChatMode(null));
+        assertNull(SessionSendService.normalizeRequestedChatMode(""));
+        assertNull(SessionSendService.normalizeRequestedChatMode("   "));
+        assertEquals("plan", SessionSendService.normalizeRequestedChatMode(" plan "));
+        // Mode values are not validated on the Java side (normalization
+        // happens in ai-bridge) — any non-blank value passes through unchanged.
+        assertEquals("multitask", SessionSendService.normalizeRequestedChatMode("multitask"));
+    }
+
+    @Test
     public void getCodexRuntimeAccessErrorRequiresAuthorizationOrManagedProvider() {
         assertEquals(
                 "Codex local configuration access is not authorized. Please authorize local ~/.codex access or enable a managed Codex provider first.",

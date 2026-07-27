@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CLAUDE_MODELS } from '../../components/ChatInputBox/types';
-import type { PermissionMode } from '../../components/ChatInputBox/types';
+import type { ChatMode, PermissionMode } from '../../components/ChatInputBox/types';
 
 /**
  * Claude-specific selectable state. State only — handlers that span providers
@@ -15,6 +15,9 @@ export function useClaudeProvider() {
   // Subagent (Task tool) model override. '' = no override (follow the main
   // model / CLI default); Claude-only.
   const [selectedSubagentModel, setSelectedSubagentModel] = useState('');
+  // Per-message chat mode. 'agent' = default/normal; Claude-only. Travels
+  // inside the send_message payload (no bridge event on change).
+  const [selectedChatMode, setSelectedChatMode] = useState<ChatMode>('agent');
 
   return {
     selectedClaudeModel,
@@ -27,6 +30,8 @@ export function useClaudeProvider() {
     setClaudeSettingsAlwaysThinkingEnabled,
     selectedSubagentModel,
     setSelectedSubagentModel,
+    selectedChatMode,
+    setSelectedChatMode,
   };
 }
 

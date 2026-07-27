@@ -244,6 +244,19 @@ class ClaudeStreamAdapter {
                 callback.onMessage("compact_status", payloadAsString(data));
                 return;
 
+            case "task_event":
+                // Background-task lifecycle from ai-bridge (async subagent
+                // started/progress/notification/updated, tool_progress
+                // heartbeat). Payload: {kind, ...}.
+                callback.onMessage("task_event", payloadAsString(data));
+                return;
+
+            case "subagent_message":
+                // Trimmed sidechain tool step from ai-bridge.
+                // Payload: {parentToolUseId, role, blocks:[...]}.
+                callback.onMessage("subagent_message", payloadAsString(data));
+                return;
+
             case "usage":
                 callback.onMessage("usage", payloadAsString(data));
                 return;

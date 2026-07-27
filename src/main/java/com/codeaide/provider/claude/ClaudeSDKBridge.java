@@ -460,7 +460,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             MessageCallback callback
     ) {
         return sendMessage(channelId, message, sessionId, runtimeSessionEpoch, cwd, attachments, permissionMode,
-                model, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort, null, callback);
+                model, openedFiles, agentPrompt, streaming, disableThinking, reasoningEffort, null, null, callback);
     }
 
     /**
@@ -482,6 +482,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             Boolean disableThinking,
             String reasoningEffort,
             String subagentModel,
+            String chatMode,
             MessageCallback callback
     ) {
         String normalizedCwd = normalizeCwdForNode(cwd);
@@ -491,7 +492,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
         if (db != null) {
             return sendMessageViaDaemon(db, channelId, message, sessionId, runtimeSessionEpoch, normalizedCwd,
                     attachments, permissionMode, model, openedFiles, agentPrompt,
-                    streaming, disableThinking, reasoningEffort, subagentModel, callback);
+                    streaming, disableThinking, reasoningEffort, subagentModel, chatMode, callback);
         }
 
         // Fallback: per-process mode (spawns a new Node.js process per request)
@@ -511,6 +512,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
                 disableThinking,
                 reasoningEffort,
                 subagentModel,
+                chatMode,
                 callback
         );
     }
@@ -886,6 +888,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
             Boolean disableThinking,
             String reasoningEffort,
             String subagentModel,
+            String chatMode,
             MessageCallback callback
     ) {
         return daemonRequestExecutor.sendMessageViaDaemon(
@@ -904,6 +907,7 @@ public class ClaudeSDKBridge extends BaseSDKBridge {
                 disableThinking,
                 reasoningEffort,
                 subagentModel,
+                chatMode,
                 callback
         );
     }

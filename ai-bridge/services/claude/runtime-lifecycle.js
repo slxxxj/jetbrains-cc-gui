@@ -3,6 +3,11 @@ import { loadClaudeSdk } from '../../utils/sdk-loader.js';
 import { createPreToolUseHook, normalizePermissionMode } from './permission-mode.js';
 import { emitDaemonEvent } from '../../protocol/emitter.js';
 import {
+  buildTaskLifecycleEvent,
+  isSidechainMessage,
+  trimSidechainMessage,
+} from './stream-event-processor.js';
+import {
   beginRuntimeTurn,
   cleanupStaleAnonymousRuntimes as cleanupAnonymousFromRegistry,
   cleanupStaleSessionRuntimes as cleanupSessionsFromRegistry,
@@ -84,7 +89,7 @@ export function createTurnSink() {
   };
 }
 
-export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId, subagentModelId) {
+export function buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId, subagentModelId, chatMode = 'agent') {
   const material = {
     cwd: options.cwd || '',
     additionalDirectories: options.additionalDirectories || [],
@@ -112,7 +117,12 @@ export function buildRuntimeSignature(options, systemPromptAppend, streamingEnab
     // launch flag. The other modes (default/plan/acceptEdits) need no launch
     // flag and keep applying live via setPermissionMode, so they intentionally
     // do NOT change the signature.
-    bypassPermissions: options.permissionMode === 'bypassPermissions'
+    bypassPermissions: options.permissionMode === 'bypassPermissions',
+    // chatMode 'ask' pins disallowedTools at spawn (an SDK option, not a runtime
+    // control), so switching to/from ask must rebuild the runtime. debug/multitask
+    // already change systemPromptAppend above, but keeping the mode explicit makes
+    // the rebuild rule uniform for every mode switch.
+    chatMode: chatMode || 'agent'
   };
   return JSON.stringify(material);
 }
@@ -334,6 +344,24 @@ export function startPerpetualReader(runtime, callbacks) {
             } else {
               // Anonymous runtime - silently consume
               console.log('[PERPETUAL_READER] Inter-turn result for anonymous runtime, consuming silently');
+            }
+          } else if (runtime.sessionId) {
+            // Async subagents (Agent/Task tool) keep producing lifecycle events
+            // and sidechain messages AFTER the spawning turn's result — e.g. the
+            // model launched an agent, replied, and ended its turn while the
+            // agent was still running. Forward them over the untagged daemon
+            // channel (tagged emit() could misroute to another session's active
+            // request) so the UI's subagent card keeps updating live; Java routes
+            // by sessionId. Everything else stays silently consumed (already
+            // persisted to JSONL by the CLI).
+            const taskEvent = buildTaskLifecycleEvent(msg);
+            if (taskEvent) {
+              emitDaemonEvent('task_event', { sessionId: runtime.sessionId, ...taskEvent });
+            } else if (isSidechainMessage(msg)) {
+              const trimmed = trimSidechainMessage(msg);
+              if (trimmed) {
+                emitDaemonEvent('subagent_message', { sessionId: runtime.sessionId, message: trimmed });
+              }
             }
           }
           // For other message types during inter-turn, we silently consume

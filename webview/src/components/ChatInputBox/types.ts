@@ -242,6 +242,80 @@ export function isValidPermissionMode(mode: string | undefined | null): mode is 
 }
 
 /**
+ * Per-message chat mode for the Claude provider. 'agent' is the default
+ * (normal) mode; any other value travels inside the send_message payload as
+ * `chatMode` (no immediate bridge event — the subagentModel pattern).
+ */
+export type ChatMode = 'agent' | 'ask' | 'plan' | 'debug' | 'multitask';
+
+/**
+ * Chat mode information
+ */
+export interface ChatModeInfo {
+  id: ChatMode;
+  label: string;
+  icon: string;
+  tooltip?: string;
+  description?: string;
+}
+
+/**
+ * Available chat modes
+ */
+export const AVAILABLE_CHAT_MODES: ChatModeInfo[] = [
+  {
+    id: 'agent',
+    label: 'Agent',
+    icon: 'codicon-robot',
+    tooltip: 'Normal agent mode',
+    description: 'Full agent behavior with tool use',
+  },
+  {
+    id: 'ask',
+    label: 'Ask',
+    icon: 'codicon-comment-discussion',
+    tooltip: 'Ask questions without making changes',
+    description: 'Answers questions only, no file edits',
+  },
+  {
+    id: 'plan',
+    label: 'Plan',
+    icon: 'codicon-tasklist',
+    tooltip: 'Plan before acting',
+    description: 'Produces a plan for approval before executing',
+  },
+  {
+    id: 'debug',
+    label: 'Debug',
+    icon: 'codicon-debug-alt',
+    tooltip: 'Debug-focused mode',
+    description: 'Investigates and diagnoses issues',
+  },
+  {
+    id: 'multitask',
+    label: 'Multitask',
+    icon: 'codicon-type-hierarchy-sub',
+    tooltip: 'Run multiple tasks in parallel',
+    description: 'Splits work into parallel subtasks',
+  },
+];
+
+/**
+ * Set of valid chat mode IDs, derived from AVAILABLE_CHAT_MODES.
+ * Use isValidChatMode() for validation instead of inline checks.
+ */
+export const VALID_CHAT_MODE_IDS: ReadonlySet<string> = new Set(
+  AVAILABLE_CHAT_MODES.map((m) => m.id)
+);
+
+/**
+ * Check whether a string is a recognized ChatMode.
+ */
+export function isValidChatMode(mode: string | undefined | null): mode is ChatMode {
+  return typeof mode === 'string' && VALID_CHAT_MODE_IDS.has(mode);
+}
+
+/**
  * Model information
  */
 export interface ModelInfo {
@@ -622,6 +696,10 @@ export interface ChatInputBoxProps {
   subagentModel?: string;
   /** Switch subagent model callback ('' = default) */
   onSubagentModelSelect?: (modelId: string) => void;
+  /** Claude-only per-message chat mode ('agent' = default) */
+  chatMode?: ChatMode;
+  /** Switch chat mode callback */
+  onChatModeSelect?: (mode: ChatMode) => void;
   /** Toggle thinking mode */
   onToggleThinking?: (enabled: boolean) => void;
   /** Whether streaming is enabled */
@@ -703,6 +781,8 @@ export interface ButtonAreaProps {
   codexFastMode?: CodexFastMode;
   /** Claude-only subagent model override ('' = follow the main model) */
   subagentModel?: string;
+  /** Claude-only per-message chat mode ('agent' = default) */
+  chatMode?: ChatMode;
 
   // Event callbacks
   onSubmit?: () => void;
@@ -716,6 +796,8 @@ export interface ButtonAreaProps {
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Switch subagent model callback ('' = default) */
   onSubagentModelSelect?: (modelId: string) => void;
+  /** Switch chat mode callback */
+  onChatModeSelect?: (mode: ChatMode) => void;
   /** Enhance prompt callback */
   onEnhancePrompt?: () => void;
   /** Quick prompt selected callback (fills the input box with the preset text) */

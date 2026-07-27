@@ -747,6 +747,22 @@ interface Window {
   onCompactStatus?: (value: string | boolean) => void;
 
   /**
+   * Task event callback - background-task lifecycle for async subagents and
+   * long-running tools. Arrives both during a turn (request channel) and
+   * between turns (daemon channel, while an async subagent keeps running).
+   * @param json JSON string: {kind:'started'|'progress'|'notification'|'updated'|'tool_progress', ...}
+   */
+  onTaskEvent?: (json: string) => void;
+
+  /**
+   * Subagent message callback - a trimmed sidechain tool step (tool_use or
+   * tool_result) belonging to a subagent's internal conversation. The frontend
+   * nests these under the spawning agent card instead of the main bubble.
+   * @param json JSON string: {parentToolUseId, role, blocks:[...]}
+   */
+  onSubagentMessage?: (json: string) => void;
+
+  /**
    * Permission denied callback - called when permission is denied.
    * Marks incomplete tool calls as "interrupted".
    */

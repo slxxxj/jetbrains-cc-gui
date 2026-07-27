@@ -401,6 +401,34 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     }
 
     @Override
+    public void onTaskEvent(String json) {
+        if (isInactive()) {
+            return;
+        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (isInactive()) {
+                return;
+            }
+            jsTarget.callJavaScript("onTaskEvent", JsUtils.escapeJs(json != null ? json : ""));
+            LOG.debug("Task event sent to frontend");
+        });
+    }
+
+    @Override
+    public void onSubagentMessage(String json) {
+        if (isInactive()) {
+            return;
+        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (isInactive()) {
+                return;
+            }
+            jsTarget.callJavaScript("onSubagentMessage", JsUtils.escapeJs(json != null ? json : ""));
+            LOG.debug("Subagent message sent to frontend");
+        });
+    }
+
+    @Override
     public void onUserMessageUuidPatched(String content, String uuid) {
         if (isInactive()) {
             return;

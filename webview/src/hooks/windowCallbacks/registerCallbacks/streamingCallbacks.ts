@@ -9,6 +9,7 @@ import { startTransition } from 'react';
 import type { UseWindowCallbacksOptions } from '../../useWindowCallbacks';
 import type { ClaudeMessage, ClaudeRawMessage } from '../../../types';
 import { sendBridgeEvent } from '../../../utils/bridge';
+import { installTaskEventDispatchers, clearToolProgress } from '../../../utils/taskActivityStore';
 import { THROTTLE_INTERVAL } from '../../useStreamingMessages';
 import { parseSequence } from '../parseSequence';
 import { getStreamEndHandlingMode } from '../messageSync';
@@ -268,6 +269,8 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (window.__sessionTransitioning) return;
     // New turn — drop any leftover hint from a previous turn whose cleanup was lost.
     clearStreamingHint();
+    // New turn — drop the previous turn's "tool executing" heartbeat.
+    clearToolProgress();
     const isReplayStart = mode === 'replay' || mode === true;
     // Clear any stale pending updateMessages from previous turn.
     // This prevents onStreamEnd from using outdated snapshot data.
@@ -461,6 +464,10 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     // Turn is over (normal end, error finalize, or stall recovery) — any
     // lingering tool_preparing / compacting hint must not survive it.
     clearStreamingHint();
+    // Turn is over — the "tool executing" heartbeat line is done too. (An
+    // async subagent may keep running inter-turn; its own card keeps showing
+    // live status from task events, which are not cleared here.)
+    clearToolProgress();
 
     // Idempotency guard: dual-path delivery (primary via flush callback +
     // fallback via Alarm) may send onStreamEnd twice for the same turn.
@@ -897,4 +904,9 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       return prev?.kind === 'compacting' ? null : prev;
     });
   };
+
+  // Live subagent/task progress callbacks (onTaskEvent / onSubagentMessage) are
+  // owned by the taskActivityStore — installed here at startup so early events
+  // are never dropped for lack of a mounted subscriber.
+  installTaskEventDispatchers();
 }

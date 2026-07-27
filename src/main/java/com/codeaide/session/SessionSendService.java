@@ -86,7 +86,8 @@ public class SessionSendService {
             String requestedPermissionMode,
             String requestedReasoningEffort,
             String requestedCodexFastMode,
-            String requestedSubagentModel
+            String requestedSubagentModel,
+            String requestedChatMode
     ) {
         String agentPrompt = externalAgentPrompt;
         if (agentPrompt == null) {
@@ -114,6 +115,7 @@ public class SessionSendService {
 
         String normalizedRequestedEffort = normalizeRequestedReasoningEffort(requestedReasoningEffort);
         String normalizedRequestedSubagentModel = normalizeRequestedSubagentModel(requestedSubagentModel);
+        String normalizedRequestedChatMode = normalizeRequestedChatMode(requestedChatMode);
 
         ProviderOps ops = providerRouter.ops(currentProvider);
 
@@ -137,7 +139,8 @@ public class SessionSendService {
         }
 
         return sendToClaude(ops, channelId, input, attachments, openedFilesJson, agentPrompt,
-                effectivePermissionMode, normalizedRequestedEffort, normalizedRequestedSubagentModel);
+                effectivePermissionMode, normalizedRequestedEffort, normalizedRequestedSubagentModel,
+                normalizedRequestedChatMode);
     }
 
     /**
@@ -151,6 +154,19 @@ public class SessionSendService {
             return null;
         }
         String trimmed = subagentModel.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * Normalize the webview-selected chat mode. Mode values are not an enum on
+     * the Java side (normalization/validation happens in ai-bridge), so any
+     * non-blank value is accepted; null/blank means "default mode".
+     */
+    public static String normalizeRequestedChatMode(String chatMode) {
+        if (chatMode == null) {
+            return null;
+        }
+        String trimmed = chatMode.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
 
@@ -306,7 +322,8 @@ public class SessionSendService {
             String agentPrompt,
             String effectivePermissionMode,
             String requestedReasoningEffort,
-            String requestedSubagentModel
+            String requestedSubagentModel,
+            String requestedChatMode
     ) {
         ClaudeMessageHandler handler = new ClaudeMessageHandler(
                 project,
@@ -340,6 +357,7 @@ public class SessionSendService {
         request.disableThinking = false;
         request.reasoningEffort = requestedReasoningEffort != null ? requestedReasoningEffort : state.getReasoningEffort();
         request.subagentModel = requestedSubagentModel;
+        request.chatMode = requestedChatMode;
         request.callback = handler;
 
         return ops.sendMessage(request).thenApply(result -> null);

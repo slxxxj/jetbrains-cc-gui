@@ -94,6 +94,8 @@ export interface ProviderCapabilities {
   supportsLongContext: boolean;
   /** Whether the subagent (Task tool) model selector is shown (Claude only). */
   supportsSubagentModel: boolean;
+  /** Whether the per-message chat mode selector is shown (Claude only). */
+  supportsChatMode: boolean;
 
   // ── Permission modes ──
 
@@ -154,6 +156,7 @@ const CLAUDE_CAPABILITIES: ProviderCapabilities = {
   normalizeModelId: normalizeClaudeModelId,
   supportsLongContext: true,
   supportsSubagentModel: true,
+  supportsChatMode: true,
 
   permissionModes: ALL_PERMISSION_MODES,
   modeLabelNamespace: 'modes',
@@ -199,6 +202,7 @@ const CODEX_CAPABILITIES: ProviderCapabilities = {
   normalizeModelId: identityModelId,
   supportsLongContext: false,
   supportsSubagentModel: false,
+  supportsChatMode: false,
 
   // Codex supports default/acceptEdits/bypassPermissions; plan mode is not exposed.
   permissionModes: ALL_PERMISSION_MODES.filter((id) => id !== 'plan'),
@@ -250,6 +254,7 @@ const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapabilities = {
   normalizeModelId: identityModelId,
   supportsLongContext: false,
   supportsSubagentModel: false,
+  supportsChatMode: false,
 
   permissionModes: ALL_PERMISSION_MODES,
   modeLabelNamespace: 'modes',
@@ -339,6 +344,11 @@ export function supportsPlanMode(provider: string | undefined | null): boolean {
 /** Whether the subagent (Task tool) model selector is shown for the provider. */
 export function supportsSubagentModel(provider: string | undefined | null): boolean {
   return getProviderCapabilities(provider).supportsSubagentModel;
+}
+
+/** Whether the per-message chat mode selector is shown for the provider. */
+export function supportsChatMode(provider: string | undefined | null): boolean {
+  return getProviderCapabilities(provider).supportsChatMode;
 }
 
 /**

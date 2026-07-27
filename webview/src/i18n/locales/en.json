@@ -122,7 +122,8 @@
       "userContext": "Context: \"{{context}}\"",
       "expand": "Expand summary",
       "collapse": "Collapse summary"
-    }
+    },
+    "runningTool": "Running {{toolName}}"
   },
   "settings": {
     "title": "Settings",
@@ -1425,6 +1426,16 @@
       "unitS": "s",
       "unitTools": "tools",
       "unitTokens": "tokens"
+    },
+    "live": {
+      "starting": "Subagent starting",
+      "runningTool": "Running {{toolName}}",
+      "toolCount_one": "{{count}} tool call",
+      "toolCount_other": "{{count}} tool calls",
+      "statusCompleted": "Completed",
+      "statusError": "Failed",
+      "statusStopped": "Stopped",
+      "stepsTitle": "Steps"
     }
   },
   "statusPanel": {
@@ -1756,6 +1767,33 @@
       "label": "Full Auto",
       "tooltip": "Codex approval_policy=never – runs commands and writes files without prompting (workspace sandbox still enforced).",
       "description": "Hands-off mode. Codex executes edits and shell commands immediately."
+    }
+  },
+  "chatModes": {
+    "agent": {
+      "label": "Agent",
+      "tooltip": "Normal agent mode",
+      "description": "Full agent behavior with tool use"
+    },
+    "ask": {
+      "label": "Ask",
+      "tooltip": "Ask questions without making changes",
+      "description": "Answers questions only, no file edits"
+    },
+    "plan": {
+      "label": "Plan",
+      "tooltip": "Plan before acting",
+      "description": "Produces a plan for approval before executing"
+    },
+    "debug": {
+      "label": "Debug",
+      "tooltip": "Debug-focused mode",
+      "description": "Investigates and diagnoses issues"
+    },
+    "multitask": {
+      "label": "Multitask",
+      "tooltip": "Run multiple tasks in parallel",
+      "description": "Splits work into parallel subtasks"
     }
   },
   "providers": {

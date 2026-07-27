@@ -686,6 +686,20 @@ public class DaemonBridge {
                 break;
             }
 
+            case "task_event":
+            case "subagent_message": {
+                // Async subagent lifecycle arriving between turns (the spawning
+                // turn already ended while the agent kept running). Listeners
+                // route by sessionId to the owning chat window's webview.
+                String sessionId = obj.has("sessionId") ? obj.get("sessionId").getAsString() : null;
+                if (sessionId == null || sessionId.isEmpty()) {
+                    LOG.debug("[DaemonBridge] " + event + " missing sessionId, skipping");
+                    break;
+                }
+                notifyEventListeners(event, obj);
+                break;
+            }
+
             default:
                 LOG.debug("[DaemonBridge] Unhandled daemon event: " + event);
         }

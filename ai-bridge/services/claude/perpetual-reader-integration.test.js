@@ -176,6 +176,108 @@ test('Integration: non-result inter-turn messages do not emit events', async () 
 });
 
 // ============================================================================
+// Inter-Turn Subagent Forwarding (async Agent/Task lifecycle)
+// ============================================================================
+
+test('Integration: inter-turn task lifecycle messages forward as task_event daemon events', async () => {
+  const ctl = createControlledQuery();
+  const runtime = { closed: false, sessionId: 'sess-task', turnSink: null, query: ctl.query };
+  const events = captureInterTurnEvents();
+
+  const reader = startPerpetualReader(runtime);
+  try {
+    ctl.deliver({
+      type: 'system', subtype: 'task_progress', task_id: 'task-1', tool_use_id: 'toolu_1',
+      description: 'Finding *.md', subagent_type: 'Explore', last_tool_name: 'Glob',
+      usage: { total_tokens: 100, tool_uses: 2, duration_ms: 5000 },
+    });
+    ctl.deliver({
+      type: 'tool_progress', tool_use_id: 'toolu_9', tool_name: 'Bash',
+      parent_tool_use_id: null, elapsed_time_seconds: 12,
+    });
+    await settle();
+  } finally {
+    runtime.closed = true;
+    ctl.end();
+    await reader;
+    events.restore();
+  }
+
+  const taskEvents = events.list.filter((e) => e.event === 'task_event');
+  assert.equal(taskEvents.length, 2);
+  assert.equal(taskEvents[0].type, 'daemon');
+  assert.equal(taskEvents[0].sessionId, 'sess-task');
+  assert.equal(taskEvents[0].kind, 'progress');
+  assert.equal(taskEvents[0].lastToolName, 'Glob');
+  assert.deepEqual(taskEvents[0].usage, { totalTokens: 100, toolUses: 2, durationMs: 5000 });
+  assert.equal(taskEvents[1].kind, 'tool_progress');
+  assert.equal(taskEvents[1].toolName, 'Bash');
+  assert.equal(taskEvents[1].elapsedTimeSeconds, 12);
+});
+
+test('Integration: inter-turn sidechain messages forward as trimmed subagent_message daemon events', async () => {
+  const ctl = createControlledQuery();
+  const runtime = { closed: false, sessionId: 'sess-side', turnSink: null, query: ctl.query };
+  const events = captureInterTurnEvents();
+
+  const reader = startPerpetualReader(runtime);
+  try {
+    ctl.deliver({
+      type: 'assistant',
+      parent_tool_use_id: 'toolu_agent',
+      message: {
+        content: [
+          { type: 'text', text: 'internal monologue must not leak into envelopes' },
+          { type: 'tool_use', id: 'toolu_sub_1', name: 'Glob', input: { pattern: '*.md' } },
+        ],
+      },
+    });
+    // Main-chain assistant message (no parent) must still be silently consumed.
+    ctl.deliver({ type: 'assistant', message: { content: [{ type: 'text', text: 'main' }] } });
+    await settle();
+  } finally {
+    runtime.closed = true;
+    ctl.end();
+    await reader;
+    events.restore();
+  }
+
+  const forwarded = events.list.filter((e) => e.event === 'subagent_message');
+  assert.equal(forwarded.length, 1);
+  assert.equal(forwarded[0].type, 'daemon');
+  assert.equal(forwarded[0].sessionId, 'sess-side');
+  const msg = forwarded[0].message;
+  assert.equal(msg.parentToolUseId, 'toolu_agent');
+  assert.equal(msg.role, 'assistant');
+  assert.deepEqual(msg.blocks, [
+    { type: 'tool_use', id: 'toolu_sub_1', name: 'Glob', input: { pattern: '*.md' } },
+  ]);
+});
+
+test('Integration: inter-turn task events on anonymous runtime emit nothing', async () => {
+  const ctl = createControlledQuery();
+  const runtime = { closed: false, sessionId: null, turnSink: null, query: ctl.query };
+  const events = captureInterTurnEvents();
+
+  const reader = startPerpetualReader(runtime);
+  try {
+    ctl.deliver({ type: 'system', subtype: 'task_started', task_id: 'task-1', tool_use_id: 'toolu_1' });
+    ctl.deliver({
+      type: 'assistant', parent_tool_use_id: 'toolu_agent',
+      message: { content: [{ type: 'tool_use', id: 'toolu_sub_1', name: 'Glob', input: {} }] },
+    });
+    await settle();
+  } finally {
+    runtime.closed = true;
+    ctl.end();
+    await reader;
+    events.restore();
+  }
+
+  assert.equal(events.list.length, 0);
+});
+
+// ============================================================================
 // Abort / Stream Completion / Errors
 // ============================================================================
 

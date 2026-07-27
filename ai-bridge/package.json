@@ -9,6 +9,12 @@
   "scripts": {
     "test:claude": "node channel-manager.js claude send",
     "test:codex": "node channel-manager.js codex send",
-    "test:sdk-status": "node channel-manager.js system getSdkStatus"
+    "test:sdk-status": "node channel-manager.js system getSdkStatus",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.8.0"
   }
 }

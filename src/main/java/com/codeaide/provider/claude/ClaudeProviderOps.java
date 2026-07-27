@@ -57,6 +57,7 @@ public class ClaudeProviderOps implements ProviderOps {
                 request.disableThinking,
                 request.reasoningEffort,
                 request.subagentModel,
+                request.chatMode,
                 request.callback
         );
     }

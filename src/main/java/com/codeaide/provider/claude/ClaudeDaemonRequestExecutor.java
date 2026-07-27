@@ -53,6 +53,7 @@ class ClaudeDaemonRequestExecutor {
             Boolean disableThinking,
             String reasoningEffort,
             String subagentModel,
+            String chatMode,
             MessageCallback callback
     ) {
         return CompletableFuture.supplyAsync(() -> {
@@ -77,7 +78,8 @@ class ClaudeDaemonRequestExecutor {
                         streaming,
                         disableThinking,
                         reasoningEffort,
-                        subagentModel
+                        subagentModel,
+                        chatMode
                 );
 
                 boolean hasAttachments = attachments != null && !attachments.isEmpty() && params.has("attachments");

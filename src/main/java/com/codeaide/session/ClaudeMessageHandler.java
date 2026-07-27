@@ -133,6 +133,17 @@ public class ClaudeMessageHandler implements MessageCallback {
             case "compact_status":
                 handleCompactStatus(content);
                 break;
+            case "task_event":
+                // Background-task lifecycle (async subagent progress or a
+                // tool_progress heartbeat). Payload is raw JSON — the frontend
+                // parses it; no message-list involvement.
+                callbackHandler.notifyTaskEvent(content);
+                break;
+            case "subagent_message":
+                // A subagent-internal (sidechain) tool step. Payload is trimmed
+                // JSON; the frontend nests it under the spawning agent card.
+                callbackHandler.notifySubagentMessage(content);
+                break;
             case "message_end":
                 handleMessageEnd();
                 break;

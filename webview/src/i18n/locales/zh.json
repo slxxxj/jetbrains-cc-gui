@@ -122,7 +122,8 @@
       "userContext": "补充说明：「{{context}}」",
       "expand": "展开摘要",
       "collapse": "折叠摘要"
-    }
+    },
+    "runningTool": "正在执行 {{toolName}}"
   },
   "settings": {
     "title": "设置",
@@ -1430,6 +1431,16 @@
       "unitS": "秒",
       "unitTools": "个工具",
       "unitTokens": "tokens"
+    },
+    "live": {
+      "starting": "子代理启动中",
+      "runningTool": "正在执行 {{toolName}}",
+      "toolCount_one": "{{count}} 次工具调用",
+      "toolCount_other": "{{count}} 次工具调用",
+      "statusCompleted": "已完成",
+      "statusError": "失败",
+      "statusStopped": "已停止",
+      "stepsTitle": "执行步骤"
     }
   },
   "statusPanel": {
@@ -1761,6 +1772,33 @@
       "label": "全自动",
       "tooltip": "Codex approval_policy=never：命令与写入直接执行（workspace 沙箱仍生效）。",
       "description": "完全免审批，写文件和执行命令立即生效，仅受沙箱限制。"
+    }
+  },
+  "chatModes": {
+    "agent": {
+      "label": "智能体",
+      "tooltip": "常规智能体模式",
+      "description": "完整的智能体行为，可使用工具"
+    },
+    "ask": {
+      "label": "提问",
+      "tooltip": "只提问，不做改动",
+      "description": "仅回答问题，不修改文件"
+    },
+    "plan": {
+      "label": "计划",
+      "tooltip": "先规划再执行",
+      "description": "先生成计划供审批，再执行"
+    },
+    "debug": {
+      "label": "调试",
+      "tooltip": "专注于调试的模式",
+      "description": "排查并诊断问题"
+    },
+    "multitask": {
+      "label": "多任务",
+      "tooltip": "并行运行多个任务",
+      "description": "将工作拆分为并行子任务"
     }
   },
   "providers": {

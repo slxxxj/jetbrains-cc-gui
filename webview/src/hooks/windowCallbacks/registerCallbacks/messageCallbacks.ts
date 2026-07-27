@@ -25,6 +25,7 @@ import {
 import { releaseSessionTransition } from '../sessionTransition';
 import { parseSequence } from '../parseSequence';
 import { collectUnresolvedToolUseIds } from './streamingCallbacks';
+import { resetTaskActivityStore } from '../../../utils/taskActivityStore';
 
 const isTruthy = (v: unknown) => v === true || v === 'true';
 
@@ -673,6 +674,10 @@ export function registerMessageCallbacks(
     window.__deniedToolIds?.clear();
     resetTransientUiState();
     closeContextUsageDialog();
+    // Drop live subagent/task state from the previous session: activities are
+    // keyed by tool_use ids of the old session and must not leak "running"
+    // status into the new one's cards.
+    resetTaskActivityStore();
     setMessages([]);
   };
 

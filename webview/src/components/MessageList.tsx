@@ -7,6 +7,7 @@ import { MessageItem } from './MessageItem';
 import WaitingIndicator from './WaitingIndicator';
 import { ContextMenu } from './ContextMenu';
 import { useContextMenu, copySelection } from '../hooks/useContextMenu.js';
+import { useLatestToolProgress } from '../utils/taskActivityStore';
 import type { MessageListRevealHandle } from './ConversationSearch/types';
 
 /** Always render at least this many recent messages. Earlier messages are collapsed. */
@@ -96,6 +97,11 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
   // page-size chunks as the user clicks "show earlier", avoiding a single huge
   // mount when sessions exceed hundreds of messages.
   const [revealedCount, setRevealedCount] = useState(0);
+
+  // Live "tool executing" heartbeat from the SDK (see taskActivityStore); the
+  // WaitingIndicator turns it into a "Running <tool> · Ns" line during long
+  // tool executions so the session visibly stays alive.
+  const toolProgress = useLatestToolProgress();
 
   // Context menu for message list (copy only, when text selected)
   const ctxMenu = useContextMenu();
@@ -201,7 +207,9 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
       })}
 
       {/* Loading indicator — shows the transient streaming hint (tool
-          preparation / context compaction) in place of the generic label. */}
+          preparation / context compaction) in place of the generic label,
+          and otherwise the live "tool N is executing" heartbeat line so a
+          long tool chain never looks frozen/disconnected. */}
       {loading && (
         <WaitingIndicator
           startTime={loadingStartTime ?? undefined}
@@ -212,6 +220,7 @@ export const MessageList = memo(forwardRef<MessageListRevealHandle, MessageListP
                 ? t('chat.compactingContext')
                 : undefined
           }
+          toolProgress={streamingHint ? undefined : toolProgress}
         />
       )}
       <div ref={messagesEndRef} />

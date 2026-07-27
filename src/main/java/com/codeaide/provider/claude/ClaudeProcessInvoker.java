@@ -78,6 +78,7 @@ class ClaudeProcessInvoker {
             Boolean disableThinking,
             String reasoningEffort,
             String subagentModel,
+            String chatMode,
             MessageCallback callback
     ) {
         AtomicBoolean errorAlreadyReported = new AtomicBoolean(false);
@@ -117,7 +118,8 @@ class ClaudeProcessInvoker {
                         streaming,
                         disableThinking,
                         reasoningEffort,
-                        subagentModel
+                        subagentModel,
+                        chatMode
                 );
                 String stdinJson = gson.toJson(stdinInput);
                 String preview = logSanitizer.buildPreview(stdinJson, 500);

@@ -204,6 +204,49 @@ public class ClaudeStreamAdapterEnvelopeTest {
         assertEquals("{\"compacting\":false,\"trigger\":\"auto\"}", callback.events.get(1).payload);
     }
 
+    @Test
+    public void envelopeTaskEventRoutesJsonPayload() {
+        ClaudeStreamAdapter adapter = new ClaudeStreamAdapter(gson);
+        RecordingCallback callback = new RecordingCallback();
+        SDKResult result = new SDKResult();
+
+        adapter.processEnvelope("task_event",
+                JsonParser.parseString("{\"kind\":\"progress\",\"taskId\":\"t1\",\"toolUseId\":\"toolu_1\",\"lastToolName\":\"Glob\"}"),
+                callback, result, new StringBuilder(),
+                new AtomicBoolean(false), new AtomicReference<>(null), new AtomicBoolean(false));
+        adapter.processEnvelope("task_event",
+                JsonParser.parseString("{\"kind\":\"tool_progress\",\"toolName\":\"Bash\",\"elapsedTimeSeconds\":12}"),
+                callback, result, new StringBuilder(),
+                new AtomicBoolean(false), new AtomicReference<>(null), new AtomicBoolean(false));
+
+        assertEquals(2, callback.events.size());
+        assertEquals("task_event", callback.events.get(0).type);
+        assertEquals("{\"kind\":\"progress\",\"taskId\":\"t1\",\"toolUseId\":\"toolu_1\",\"lastToolName\":\"Glob\"}",
+                callback.events.get(0).payload);
+        assertEquals("task_event", callback.events.get(1).type);
+        // Task events must never leak into the message list
+        assertEquals(0, result.messages.size());
+    }
+
+    @Test
+    public void envelopeSubagentMessageRoutesJsonPayload() {
+        ClaudeStreamAdapter adapter = new ClaudeStreamAdapter(gson);
+        RecordingCallback callback = new RecordingCallback();
+        SDKResult result = new SDKResult();
+
+        adapter.processEnvelope("subagent_message",
+                JsonParser.parseString("{\"parentToolUseId\":\"toolu_1\",\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool_use\",\"id\":\"s1\",\"name\":\"Glob\"}]}"),
+                callback, result, new StringBuilder(),
+                new AtomicBoolean(false), new AtomicReference<>(null), new AtomicBoolean(false));
+
+        assertEquals(1, callback.events.size());
+        assertEquals("subagent_message", callback.events.get(0).type);
+        assertEquals("{\"parentToolUseId\":\"toolu_1\",\"role\":\"assistant\",\"blocks\":[{\"type\":\"tool_use\",\"id\":\"s1\",\"name\":\"Glob\"}]}",
+                callback.events.get(0).payload);
+        // Sidechain steps must not be merged into the main assistant bubble
+        assertEquals(0, result.messages.size());
+    }
+
     private JsonElement str(String value) {
         return JsonParser.parseString(gson.toJson(value));
     }

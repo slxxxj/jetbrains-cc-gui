@@ -15,6 +15,7 @@ import com.codeaide.util.JBCefBrowserFactory;
 import com.codeaide.util.LanguageConfigService;
 import com.codeaide.util.PlatformUtils;
 import com.codeaide.util.ThemeConfigService;
+import com.codeaide.util.WebviewAssetSchemeHandler;
 import com.google.gson.JsonArray;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
@@ -401,6 +402,10 @@ public class WebviewInitializer {
                             frame.isMain(), errorCode.getCode(), errorText, failedUrl);
                 }
             }, browser.getCefBrowser());
+
+            // Serve lazy-loaded webview chunks (e.g. mermaid) from plugin resources.
+            // Safe to call here: the browser exists, so JBCefApp is initialized.
+            WebviewAssetSchemeHandler.ensureRegistered();
 
             browser.loadHTML(htmlContent);
 

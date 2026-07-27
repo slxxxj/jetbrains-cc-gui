@@ -5,7 +5,9 @@ import { normalizeToolName } from '../../utils/toolConstants';
 import { sendBridgeEvent } from '../../utils/bridge';
 import { getPersistedExpanded, setPersistedExpanded } from '../../utils/expandedState';
 import { useSubagentHistoryGetter, useSessionId, useGetToolResultRaw, type GetToolResultRawFn } from '../../contexts/SubagentContext';
+import { useSubagentActivity, useSubagentSteps, SUBAGENT_ACTIVITY_STALE_MS } from '../../utils/taskActivityStore';
 import SubagentProcessDetails from '../StatusPanel/SubagentProcessDetails';
+import { SubagentLiveLine, SubagentResultSummary, SubagentSteps } from './SubagentLiveSteps';
 import { ContentBlockRenderer } from '../MessageItem/ContentBlockRenderer';
 
 // Constants extracted from magic numbers
@@ -96,8 +98,18 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
 
   const input = agentBlock.type === 'tool_use' ? (agentBlock.input as Record<string, unknown> | undefined) : undefined;
   const result = findToolResult(toolId, messageIndex);
-  const isCompleted = result !== undefined && result !== null;
-  const isError = isCompleted && result?.is_error === true;
+
+  // Status: a live 'running' activity wins over an early tool_result — async
+  // launches return their result metadata immediately while the agent runs on
+  // (see TaskExecutionBlock for the same rule).
+  const activity = useSubagentActivity(toolId);
+  const activityStale = activity?.status === 'running'
+    && Date.now() - activity.updatedAt > SUBAGENT_ACTIVITY_STALE_MS;
+  const activityRunning = activity?.status === 'running' && !activityStale;
+  const activityTerminal = activity != null && !activityRunning;
+  const isCompleted = (result !== undefined && result !== null && !activityRunning) || activityTerminal;
+  const isError = isCompleted
+    && (result?.is_error === true || activity?.status === 'error' || activity?.status === 'stopped' || activityStale === true);
 
   const agentType = getAgentType(agentBlock);
   const summary = getAgentSummary(agentBlock);
@@ -106,6 +118,10 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
   const agentToolMeta = parseAgentToolMeta(getToolResultRaw, toolId);
   const agentId = agentToolMeta.agentId ?? (input?.agent_id as string | undefined) ?? (input?.agentId as string | undefined);
   const history = (toolId ? getSubagentHistory(toolId) : undefined) ?? (agentId ? getSubagentHistory(agentId) : undefined);
+  // Live sidechain steps take precedence over the disk-history view: while
+  // steps stream in, SubagentProcessDetails would only show a loading spinner.
+  const liveSteps = useSubagentSteps(toolId);
+  const hasLiveSteps = (liveSteps?.length ?? 0) > 0;
 
   const noopToggleThinking = useCallback(() => {}, []);
 
@@ -189,17 +205,27 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
         </div>
       </div>
 
+      {/* Live progress line from the task_event stream — visible without
+          expanding, keeps the card honest while an async subagent runs. */}
+      <SubagentLiveLine toolId={toolId} />
+
       {expanded && (
         <div className="task-details agent-group-content">
-          <SubagentProcessDetails
-            agentId={agentId}
-            totalDurationMs={agentToolMeta.totalDurationMs}
-            totalTokens={agentToolMeta.totalTokens}
-            totalToolUseCount={agentToolMeta.totalToolUseCount}
-            resultText={extractResultText(result)}
-            history={history}
-            canLoad={Boolean(currentSessionId)}
-          />
+          {/* Live sidechain steps + async result summary take precedence;
+              SubagentProcessDetails (disk history) complements below. */}
+          <SubagentSteps toolId={toolId} />
+          <SubagentResultSummary toolId={toolId} />
+          {(!hasLiveSteps || isCompleted) && (
+            <SubagentProcessDetails
+              agentId={agentId}
+              totalDurationMs={agentToolMeta.totalDurationMs}
+              totalTokens={agentToolMeta.totalTokens}
+              totalToolUseCount={agentToolMeta.totalToolUseCount}
+              resultText={activity?.summary ?? extractResultText(result)}
+              history={history}
+              canLoad={Boolean(currentSessionId)}
+            />
+          )}
           {followingBlocks.map((block, idx) => {
             // Use block id as stable key; fall back to index for non-tool-use blocks
             const blockKey = (block as { id?: string }).id ?? `${messageIndex}-agent-${idx}`;

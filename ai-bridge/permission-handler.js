@@ -82,7 +82,9 @@ export const EDIT_TOOLS = new Set([
 // EXECUTION tools: always require permission (except bypassPermissions mode)
 export const EXECUTION_TOOLS = new Set([
   'Bash',           // Execute shell commands
+  'PowerShell',     // Execute shell commands (Windows tool name in newer CLI versions)
   'Agent',          // Launch sub-agents (agent has own permission checks but launch needs approval)
+  'Task',           // Newer CLI name for the sub-agent launch tool (renamed from Agent)
 ]);
 
 // Re-export IPC functions for consumers that import from permission-handler

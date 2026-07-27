@@ -35,10 +35,15 @@ import {
   buildConfigErrorPayload
 } from './message-utils.js';
 import { createPreToolUseHook } from './permission-mode.js';
+import {
+  ASK_MODE_DISALLOWED_TOOLS,
+  buildChatModePromptAppend,
+  normalizeChatMode
+} from './chat-mode.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
 import { setActiveQueryResult } from './message-session-registry.js';
 import { normalizeStreamDelta, resolveSnapshotDelta, resetTurnBlockState } from './stream-delta-normalizer.js';
-import { processSystemMessage } from './stream-event-processor.js';
+import { processSystemMessage, processTaskLifecycleEvent, isSidechainMessage, trimSidechainMessage } from './stream-event-processor.js';
 import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 import { emit } from '../../protocol/emitter.js';
@@ -81,9 +86,24 @@ function resolveSubagentModelState(subagentModel, settingsEnv) {
 }
 
 /**
+ * Resolve the per-message chat mode into its request-level effects:
+ * - plan → SDK native plan permission mode for this query (applied by the caller)
+ * - ask  → file-mutation tools disallowed + mode prompt
+ * - debug/multitask → mode prompt
+ */
+function resolveChatModeState(chatMode) {
+  const normalized = normalizeChatMode(chatMode);
+  return {
+    chatMode: normalized,
+    promptAppend: buildChatModePromptAppend(normalized),
+    disallowedTools: normalized === 'ask' ? ASK_MODE_DISALLOWED_TOOLS : null
+  };
+}
+
+/**
  * Build query options object shared by both send functions.
  */
-function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId, subagentModelId }) {
+function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId, subagentModelId, disallowedTools }) {
   const claudeCliOverride = getClaudeCliPathOverride();
   // Phase 5c: managed providers no longer sync skills into ~/.claude/settings.json;
   // enabled skills are passed via the SDK plugins option instead (null for
@@ -110,6 +130,7 @@ function buildQueryOptions({ workingDirectory, permissionMode, sdkModelName, max
     // true when using permissionMode: 'bypassPermissions'"). Without it a future SDK
     // version could silently drop bypass and change permission behavior.
     ...(permissionMode === 'bypassPermissions' && { allowDangerouslySkipPermissions: true }),
+    ...(disallowedTools && { disallowedTools }),
     ...(mcpServers && { mcpServers }),
     ...(claudeCliOverride && { pathToClaudeCodeExecutable: claudeCliOverride }),
     systemPrompt: {
@@ -237,6 +258,20 @@ function processStreamMessage(msg, state, logPrefix) {
     return;
   }
 
+  // Sidechain messages (subagent-internal assistant/user turns, identified by
+  // parent_tool_use_id) must NOT be merged into the main assistant bubble.
+  // Forward them as a dedicated envelope so the UI can nest them under the
+  // spawning agent card (Cursor-style live subagent steps). Mirrors
+  // persistent-query-service.js — both send paths must route identically.
+  if (isSidechainMessage(msg)) {
+    const trimmed = trimSidechainMessage(msg);
+    if (trimmed) {
+      emit('subagent_message', trimmed);
+    }
+    emitUsageTag(msg);
+    return;
+  }
+
   // Determine whether to emit the full 'message' envelope
   let shouldOutput = true;
   if (state.streamingEnabled && msg.type === 'assistant') {
@@ -293,6 +328,11 @@ function processStreamMessage(msg, state, logPrefix) {
   // Forward compaction lifecycle signals (system/status 'compacting' and
   // system/compact_boundary) so the UI can indicate context compression.
   processSystemMessage(msg);
+
+  // Forward background-task lifecycle signals (task_started / task_progress /
+  // task_notification / task_updated and tool_progress heartbeats) so the UI
+  // can render live subagent progress and long-tool activity.
+  processTaskLifecycleEvent(msg);
 
   // Error result detection
   if (msg.type === 'result' && msg.is_error) {
@@ -475,7 +515,7 @@ function handleSendError(error, streamState, sdkStderrLines) {
  * @param {string} agentPrompt - Agent prompt (optional)
  * @param {boolean} streaming - Whether to enable streaming (optional, defaults to config value)
  */
-export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null, subagentModel = null) {
+export async function sendMessage(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, openedFiles = null, agentPrompt = null, streaming = null, disableThinking = false, reasoningEffort = null, subagentModel = null, chatMode = null) {
   console.log('[DIAG] ========== sendMessage() START ==========');
   console.log('[DIAG] params:', { msgLen: message ? message.length : 0, resumeSessionId: resumeSessionId || '(new)', cwd, permissionMode, model });
 
@@ -502,9 +542,15 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
     const resolvedSubagentModel = resolveSubagentModelState(subagentModel, settings?.env);
     setSubagentModelEnvironmentVariable(resolvedSubagentModel);
 
-    const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
+    const chatModeState = resolveChatModeState(chatMode);
+    // Compose the mode prompt WITH the existing append — never clobber it.
+    const systemPromptAppend = [buildSystemPromptAppend(openedFiles, agentPrompt, message), chatModeState.promptAppend]
+      .filter(Boolean)
+      .join('\n\n');
 
-    const effectivePermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
+    const requestedPermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
+    // chatMode 'plan' maps to the SDK's native plan permission mode for this query only.
+    const effectivePermissionMode = chatModeState.chatMode === 'plan' ? 'plan' : requestedPermissionMode;
     const normalizedReasoningEffort = normalizeReasoningEffort(reasoningEffort);
     const { alwaysThinkingEnabled, maxThinkingTokens: configuredMaxThinkingTokens } = resolveThinkingConfig(settings);
     // maxThinkingTokens and reasoningEffort are mutually exclusive
@@ -514,7 +560,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
 
     const preToolUseHook = createPreToolUseHook(effectivePermissionMode, workingDirectory);
     const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    const options = buildQueryOptions({ workingDirectory, permissionMode: effectivePermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model, subagentModelId: resolvedSubagentModel });
+    const options = buildQueryOptions({ workingDirectory, permissionMode: effectivePermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model, subagentModelId: resolvedSubagentModel, disallowedTools: chatModeState.disallowedTools });
 
     if (normalizedReasoningEffort) {
       options.effort = normalizedReasoningEffort;
@@ -549,7 +595,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
  * @param {string} model - Model name (optional)
  * @param {object} stdinData - Stdin data containing attachments (optional)
  */
-export async function sendMessageWithAttachments(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, stdinData = null) {
+export async function sendMessageWithAttachments(message, resumeSessionId = null, cwd = null, permissionMode = null, model = null, stdinData = null, chatMode = null) {
   const sdkStderrLines = [];
   let streamingEnabled = false;
   const outerStreamState = { streamStarted: false, streamEnded: false, accumulatedUsage: null };
@@ -564,7 +610,12 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     const openedFiles = stdinData?.openedFiles || null;
     const agentPrompt = stdinData?.agentPrompt || null;
 
-    const systemPromptAppend = buildSystemPromptAppend(openedFiles, agentPrompt, message);
+    // Trailing param wins; stdinData.chatMode covers the legacy args-dispatch path.
+    const chatModeState = resolveChatModeState(chatMode ?? stdinData?.chatMode);
+    // Compose the mode prompt WITH the existing append — never clobber it.
+    const systemPromptAppend = [buildSystemPromptAppend(openedFiles, agentPrompt, message), chatModeState.promptAppend]
+      .filter(Boolean)
+      .join('\n\n');
 
     const sdkModelName = mapModelIdToSdkName(model);
     const settings = loadClaudeSettings();
@@ -580,7 +631,9 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
       message: { role: 'user', content: contentBlocks }
     };
 
-    const normalizedPermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
+    const requestedPermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
+    // chatMode 'plan' maps to the SDK's native plan permission mode for this query only.
+    const normalizedPermissionMode = chatModeState.chatMode === 'plan' ? 'plan' : requestedPermissionMode;
     const preToolUseHook = createPreToolUseHook(normalizedPermissionMode, workingDirectory);
 
     const { alwaysThinkingEnabled, maxThinkingTokens: configuredMaxThinkingTokens } = resolveThinkingConfig(settings);
@@ -592,7 +645,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
     console.log('[DEBUG] (withAttachments) Config:', { normalizedPermissionMode, alwaysThinkingEnabled, maxThinkingTokens, streamingEnabled, reasoningEffort });
 
     const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    const options = buildQueryOptions({ workingDirectory, permissionMode: normalizedPermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model, subagentModelId: resolvedSubagentModel });
+    const options = buildQueryOptions({ workingDirectory, permissionMode: normalizedPermissionMode, sdkModelName, maxThinkingTokens, streamingEnabled, systemPromptAppend, preToolUseHook, sdkStderrLines, mcpServers, modelId: model, subagentModelId: resolvedSubagentModel, disallowedTools: chatModeState.disallowedTools });
 
     if (reasoningEffort) {
       options.effort = reasoningEffort;

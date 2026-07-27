@@ -57,7 +57,8 @@ public class ClaudeSDKBridgeRefactorTest {
                 Boolean.TRUE,
                 Boolean.TRUE,
                 "xhigh",
-                "claude-haiku-4-5"
+                "claude-haiku-4-5",
+                "plan"
         );
 
         assertEquals("hello", params.get("message").getAsString());
@@ -71,6 +72,7 @@ public class ClaudeSDKBridgeRefactorTest {
         assertTrue(params.get("disableThinking").getAsBoolean());
         assertEquals("xhigh", params.get("reasoningEffort").getAsString());
         assertEquals("claude-haiku-4-5", params.get("subagentModel").getAsString());
+        assertEquals("plan", params.get("chatMode").getAsString());
         assertTrue(params.has("attachments"));
         assertEquals(1, params.getAsJsonArray("attachments").size());
         assertEquals("image.png", params.getAsJsonArray("attachments").get(0).getAsJsonObject().get("fileName").getAsString());
@@ -82,12 +84,25 @@ public class ClaudeSDKBridgeRefactorTest {
         ClaudeRequestParamsBuilder builder = new ClaudeRequestParamsBuilder(new Gson());
 
         JsonObject nullParams = builder.buildSendParams(
-                "hello", null, null, null, null, null, null, null, null, null, null, null, null);
+                "hello", null, null, null, null, null, null, null, null, null, null, null, null, null);
         assertFalse(nullParams.has("subagentModel"));
 
         JsonObject blankParams = builder.buildSendParams(
-                "hello", null, null, null, null, null, null, null, null, null, null, null, "   ");
+                "hello", null, null, null, null, null, null, null, null, null, null, null, "   ", null);
         assertFalse(blankParams.has("subagentModel"));
+    }
+
+    @Test
+    public void requestBuilderOmitsChatModeWhenNullOrBlank() {
+        ClaudeRequestParamsBuilder builder = new ClaudeRequestParamsBuilder(new Gson());
+
+        JsonObject nullParams = builder.buildSendParams(
+                "hello", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        assertFalse(nullParams.has("chatMode"));
+
+        JsonObject blankParams = builder.buildSendParams(
+                "hello", null, null, null, null, null, null, null, null, null, null, null, null, "   ");
+        assertFalse(blankParams.has("chatMode"));
     }
 
     @Test
@@ -104,6 +119,7 @@ public class ClaudeSDKBridgeRefactorTest {
                 null,
                 null,
                 attachments,
+                null,
                 null,
                 null,
                 null,
@@ -204,6 +220,7 @@ public class ClaudeSDKBridgeRefactorTest {
                 null,
                 null,
                 Boolean.TRUE,
+                null,
                 null,
                 null,
                 null,

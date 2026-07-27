@@ -24,6 +24,11 @@ import { buildIDEContextPrompt } from '../system-prompts.js';
 import { buildQuickFixPrompt } from '../quickfix-prompts.js';
 import { registerActiveQueryResult, removeSession } from './message-service.js';
 import { normalizePermissionMode } from './permission-mode.js';
+import {
+  ASK_MODE_DISALLOWED_TOOLS,
+  buildChatModePromptAppend,
+  normalizeChatMode
+} from './chat-mode.js';
 import { redactSecrets, truncateString } from './message-output-filter.js';
 import {
   beginRuntimeTurn,
@@ -58,8 +63,11 @@ import {
   processMessageContent,
   processStreamEvent,
   processSystemMessage,
+  processTaskLifecycleEvent,
   processToolResultMessages,
   shouldOutputMessage,
+  isSidechainMessage,
+  trimSidechainMessage,
 } from './stream-event-processor.js';
 import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
@@ -137,7 +145,7 @@ function resolveSubagentModelState(params, settingsEnv) {
   return resolveModelFromSettings(raw, settingsEnv) || raw;
 }
 
-function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId, mcpServers, modelId, subagentModelId) {
+function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId, mcpServers, modelId, subagentModelId, disallowedTools) {
   const claudeCliOverride = getClaudeCliPathOverride();
   // Phase 5c: managed providers no longer sync skills into ~/.claude/settings.json;
   // enabled skills are passed via the SDK plugins option instead (null for
@@ -166,6 +174,7 @@ function buildQueryOptions(workingDirectory, sdkModelName, permissionMode, maxTh
     // true when using permissionMode: 'bypassPermissions'"). Without it a future SDK
     // version could silently drop bypass and change permission behavior.
     ...(permissionMode === 'bypassPermissions' && { allowDangerouslySkipPermissions: true }),
+    ...(disallowedTools && { disallowedTools }),
     ...(mcpServers && { mcpServers }),
     ...(claudeCliOverride && { pathToClaudeCodeExecutable: claudeCliOverride }),
     systemPrompt: {
@@ -227,23 +236,37 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
   const subagentModelId = resolveSubagentModelState(params, settings?.env);
   setSubagentModelEnvironmentVariable(subagentModelId);
 
-  const permissionMode = normalizePermissionMode(params.permissionMode);
+  const chatMode = normalizeChatMode(params.chatMode);
+  // chatMode 'plan' maps to the SDK's native plan permission mode for this
+  // query only; requestContext.permissionMode carries it so a reused runtime
+  // is reconciled via applyDynamicControls exactly like a user mode switch.
+  const permissionMode = chatMode === 'plan'
+    ? 'plan'
+    : normalizePermissionMode(params.permissionMode);
   const streamingEnabled = resolveStreamingEnabled(params, settings);
   const reasoningEffort = resolveReasoningEffort(params);
   const maxThinkingTokens = resolveThinkingTokens(params, settings);
-  const systemPromptAppend = buildSystemPromptAppend(params);
+  // Compose the mode prompt WITH the existing append (quickfix / IDE context +
+  // agentPrompt) — never clobber it. Empty when neither contributes, preserving
+  // the previous "no append" behavior.
+  const systemPromptAppend = [buildSystemPromptAppend(params), buildChatModePromptAppend(chatMode)]
+    .filter(Boolean)
+    .join('\n\n');
+  // ask mode pins disallowedTools at spawn (SDK option, not a runtime control),
+  // so buildRuntimeSignature includes chatMode to force a rebuild on mode switch.
+  const disallowedTools = chatMode === 'ask' ? ASK_MODE_DISALLOWED_TOOLS : null;
 
   const mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
 
   const options = buildQueryOptions(
     workingDirectory, sdkModelName, permissionMode,
     maxThinkingTokens, reasoningEffort, streamingEnabled, systemPromptAppend, requestedSessionId,
-    mcpServers, modelId, subagentModelId
+    mcpServers, modelId, subagentModelId, disallowedTools
   );
 
   const userMessage = await buildUserMessage(params, withAttachments, requestedSessionId, resolvedModelId);
 
-  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId, subagentModelId);
+  const runtimeSignature = buildRuntimeSignature(options, systemPromptAppend, streamingEnabled, runtimeSessionEpoch, modelId, subagentModelId, chatMode);
   console.log('[LIFECYCLE] buildRequestContext sessionId=' + (requestedSessionId || '(new)')
     + ' epoch=' + (runtimeSessionEpoch || '(none)')
     + ' signature=' + runtimeSignature);
@@ -258,6 +281,7 @@ async function buildRequestContext(params, withAttachments, overrides = {}) {
     modelId, // Original model ID from params, may contain [1m] suffix
     resolvedModelId,
     permissionMode,
+    chatMode,
     maxThinkingTokens,
     reasoningEffort,
     runtimeSignature
@@ -330,6 +354,19 @@ async function executeTurn(runtime, requestContext, turnMeta) {
         continue;
       }
 
+      // Sidechain messages (subagent-internal assistant/user turns, identified by
+      // parent_tool_use_id) must NOT be merged into the main assistant bubble.
+      // Forward them as a dedicated envelope so the UI can nest them under the
+      // spawning agent card (Cursor-style live subagent steps).
+      if (isSidechainMessage(msg)) {
+        const trimmed = trimSidechainMessage(msg);
+        if (trimmed) {
+          emit('subagent_message', trimmed);
+        }
+        emitUsageTag(msg);
+        continue;
+      }
+
       // Preserve all existing message processing logic
       if (shouldOutputMessage(msg, turnState)) {
         emit('message', msg);
@@ -353,6 +390,11 @@ async function executeTurn(runtime, requestContext, turnMeta) {
       // Forward compaction lifecycle signals (system/status 'compacting' and
       // system/compact_boundary) so the UI can indicate context compression.
       processSystemMessage(msg);
+
+      // Forward background-task lifecycle signals (task_started / task_progress /
+      // task_notification / task_updated and tool_progress heartbeats) so the UI
+      // can render live subagent progress and long-tool activity.
+      processTaskLifecycleEvent(msg);
 
       if (msg?.type === 'result') {
         if (msg.is_error) {
