@@ -477,7 +477,7 @@ function emitThinkingBlock(state, text) {
   });
 }
 
-function maybeEmitReasoning(state, item) {
+function maybeEmitReasoning(state, item, { emitSnapshot = true } = {}) {
   if (!item || item.type !== 'reasoning') return;
   const raw = typeof item.text === 'string' ? item.text : '';
   const text = raw.trim();
@@ -491,7 +491,12 @@ function maybeEmitReasoning(state, item) {
   if (delta) {
     emitThinkingDelta(delta);
   }
-  emitThinkingBlock(state, text);
+  // Streaming updates (app-server transport) arrive once per delta; emitting
+  // a full thinking snapshot each time would flood the message channel, so
+  // snapshots are deferred to the completed reasoning item.
+  if (emitSnapshot) {
+    emitThinkingBlock(state, text);
+  }
 }
 
 async function maybeLogRuntimePolicy(state, config) {
@@ -602,7 +607,11 @@ async function handleFileChange(item, state, config) {
   let deniedCallIds = new Set();
   let rollbackByCallId = new Map();
 
-  const shouldBridgeApproval = !isError &&
+  // app-server transport: file changes are approved server-side before they
+  // are applied (item/fileChange/requestApproval), so the post-hoc prompt +
+  // rollback flow is unnecessary and would double-ask the user.
+  const shouldBridgeApproval = !config.serverSideApprovals &&
+    !isError &&
     !isAutoEditPermissionMode(config.normalizedPermissionMode) &&
     (config.threadOptions.approvalPolicy && config.threadOptions.approvalPolicy !== 'never');
   if (shouldBridgeApproval && patchBatches.length > 0) {
@@ -730,12 +739,17 @@ export async function processCodexEventStream(events, state, config) {
           state.emitMessage(toolUseMsg(toolUseId, toolName, { command, description }));
           state.emittedToolUseIds.add(toolUseId);
           rememberToolInvocation(state, toolUseId, toolName, { command, description });
-          const allowed = await maybeRequestCommandApprovalViaBridge(
-            state, config, { toolUseId, command, smartTool: toolName, description }
-          );
-          if (!allowed) {
-            logWarn('PERM_DEBUG', `Command denied by approval bridge: ${command}`);
-            throw new Error(COMMAND_DENIED_ABORT_ERROR);
+          // app-server transport: the server itself pauses for approval via a
+          // JSON-RPC request handled by the transport layer; prompting here
+          // too would double-ask the user.
+          if (!config.serverSideApprovals) {
+            const allowed = await maybeRequestCommandApprovalViaBridge(
+              state, config, { toolUseId, command, smartTool: toolName, description }
+            );
+            if (!allowed) {
+              logWarn('PERM_DEBUG', `Command denied by approval bridge: ${command}`);
+              throw new Error(COMMAND_DENIED_ABORT_ERROR);
+            }
           }
         } else if (event.item && event.item.type === 'mcp_tool_call') {
           const toolName = normalizeMcpToolName(event.item.server, event.item.tool);
@@ -754,7 +768,7 @@ export async function processCodexEventStream(events, state, config) {
       }
 
       case 'item.updated':
-        maybeEmitReasoning(state, event.item);
+        maybeEmitReasoning(state, event.item, { emitSnapshot: !event.__deltaOnly });
         if (event.item && event.item.type === 'agent_message') {
           handleAgentMessage(event.item, state, { emitSnapshot: false });
         }

@@ -143,7 +143,7 @@
         <!-- Save As Template Action -->
         <action id="CodeAide.SaveAsTemplateAction"
                 class="com.codeaide.action.SaveAsTemplateAction"
-                icon="AllIcons.Actions.Menu_saveall"/>
+                icon="AllIcons.Actions.MenuSaveall"/>
 
         <!-- Create From Template Action -->
         <action id="CodeAide.CreateFromTemplateAction"

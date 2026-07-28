@@ -30,6 +30,7 @@ import {
 } from './codex-utils.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
 import { createInitialEventState, processCodexEventStream } from './codex-event-handler.js';
+import { startAppServerStream, resolveCodexTransport } from './codex-app-server-transport.js';
 import { emit } from '../../protocol/emitter.js';
 
 // ---------------------------------------------------------------------------
@@ -72,6 +73,10 @@ export async function sendMessage(
     emit('stream_end');
   };
 
+  // Late-bound event-handler state, referenced by transport callbacks that
+  // can only fire while the event stream is being processed.
+  let eventState = null;
+
   try {
     const normalizedPermissionMode = normalizeCodexPermissionMode(permissionMode || 'default');
 
@@ -90,48 +95,56 @@ export async function sendMessage(
     emit('message_start');
 
     // ============================================================
-    // 1. Initialize Codex SDK (dynamic loading)
+    // 1. Select transport + initialize
     // ============================================================
 
-    const sdk = await ensureCodexSdk();
-    const Codex = sdk.Codex || sdk.default || sdk;
+    // app-server: spawns `codex app-server` directly (real token-level
+    // streaming). exec: legacy @openai/codex-sdk path (chunked delivery only).
+    const transport = resolveCodexTransport();
+    console.log('[DEBUG] Codex transport:', transport);
 
-    const codexOptions = {};
-
-    // Always initialize config with reasoning summaries forced to true
-    // so custom models not in the SDK's known-reasoning-model allowlist
-    // still get thinking/reasoning parameters in API requests.
-    codexOptions.config = {
-      model_supports_reasoning_summaries: true
-    };
-
-    if (baseUrl) {
-      codexOptions.baseUrl = baseUrl;
-    }
-    if (apiKey) {
-      codexOptions.apiKey = apiKey;
-    }
-    if (serviceTier && serviceTier.trim() !== '') {
-      const sdkServiceTier = serviceTier.trim();
-      codexOptions.config = {
-        ...codexOptions.config,
-        features: {
-          fast_mode: true
-        },
-        service_tier: sdkServiceTier
-      };
-      logDebug('Codex', 'Service tier:', sdkServiceTier, 'with fast_mode feature enabled');
-    }
-
-    // Pass a sanitized env to the SDK to avoid inherited CODEX_* pollution
+    // Pass a sanitized env to the CLI to avoid inherited CODEX_* pollution
     const { cliEnv, removedKeys } = buildCodexCliEnvironment(process.env);
-    codexOptions.env = cliEnv;
     logDebug('PERM_DEBUG', 'Codex CLI env isolation:', JSON.stringify({
       removedKeys,
       removedCount: removedKeys.length
     }));
 
-    const codex = new Codex(codexOptions);
+    let codex = null;
+    if (transport === 'exec') {
+      const sdk = await ensureCodexSdk();
+      const Codex = sdk.Codex || sdk.default || sdk;
+
+      const codexOptions = {};
+
+      // Always initialize config with reasoning summaries forced to true
+      // so custom models not in the SDK's known-reasoning-model allowlist
+      // still get thinking/reasoning parameters in API requests.
+      codexOptions.config = {
+        model_supports_reasoning_summaries: true
+      };
+
+      if (baseUrl) {
+        codexOptions.baseUrl = baseUrl;
+      }
+      if (apiKey) {
+        codexOptions.apiKey = apiKey;
+      }
+      if (serviceTier && serviceTier.trim() !== '') {
+        const sdkServiceTier = serviceTier.trim();
+        codexOptions.config = {
+          ...codexOptions.config,
+          features: {
+            fast_mode: true
+          },
+          service_tier: sdkServiceTier
+        };
+        logDebug('Codex', 'Service tier:', sdkServiceTier, 'with fast_mode feature enabled');
+      }
+
+      codexOptions.env = cliEnv;
+      codex = new Codex(codexOptions);
+    }
 
     // ============================================================
     // 2. Map Unified Permission Mode to Codex Format
@@ -206,16 +219,19 @@ export async function sendMessage(
     }));
 
     // ============================================================
-    // 4. Create or Resume Thread
+    // 4. Create or Resume Thread (exec transport only; the app-server
+    //    transport handles thread lifecycle inside startAppServerStream)
     // ============================================================
 
-    let thread;
-    if (isResumingThread) {
-      console.log('[DEBUG] Resuming thread:', threadId);
-      thread = codex.resumeThread(threadId, threadOptions);
-    } else {
-      console.log('[DEBUG] Starting new thread');
-      thread = codex.startThread(threadOptions);
+    let thread = null;
+    if (transport === 'exec') {
+      if (isResumingThread) {
+        console.log('[DEBUG] Resuming thread:', threadId);
+        thread = codex.resumeThread(threadId, threadOptions);
+      } else {
+        console.log('[DEBUG] Starting new thread');
+        thread = codex.startThread(threadOptions);
+      }
     }
 
     // ============================================================
@@ -251,9 +267,39 @@ export async function sendMessage(
     }
 
     const turnAbortController = new AbortController();
-    const { events } = await thread.runStreamed(runInput, {
-      signal: turnAbortController.signal
-    });
+    let events;
+    let appServerStream = null;
+    if (transport === 'app-server') {
+      appServerStream = await startAppServerStream({
+        input: runInput,
+        threadId: isResumingThread ? threadId : null,
+        threadOptions,
+        baseUrl,
+        apiKey,
+        serviceTier,
+        cliEnv,
+        // Mirrors the legacy "denied command aborts the turn" semantics:
+        // flags the state so the resulting interrupted-turn error is
+        // suppressed by the event handler.
+        onCommandApprovalDenied: () => {
+          if (eventState) {
+            eventState.commandApprovalAbortRequested = true;
+            eventState.emitMessage({
+              type: 'status',
+              message: 'Approval denied: abort requested (command was not executed)'
+            });
+          }
+        }
+      });
+      events = appServerStream.events;
+      turnAbortController.signal.addEventListener('abort', () => {
+        appServerStream.abort().catch(() => {});
+      });
+    } else {
+      ({ events } = await thread.runStreamed(runInput, {
+        signal: turnAbortController.signal
+      }));
+    }
     emit('stream_start');
     streamStarted = true;
 
@@ -268,6 +314,7 @@ export async function sendMessage(
     };
 
     const state = createInitialEventState(emitMessage);
+    eventState = state;
 
     const config = {
       cwd: workingDirectory,
@@ -275,6 +322,9 @@ export async function sendMessage(
       threadOptions,
       normalizedPermissionMode,
       turnAbortController,
+      // app-server: approvals arrive as server-initiated JSON-RPC requests
+      // handled by the transport, so the handler must not prompt again.
+      serverSideApprovals: transport === 'app-server',
       onTurnCompleted: emitStreamEndOnce,
       onTurnFailed: emitStreamEndOnce
     };
